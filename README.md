@@ -1,90 +1,108 @@
-# Dependent Picklists for Dynamics 365 / Dataverse
+# Dependent Picklists for Dynamics 365
 
-A lightweight, no-code-for-end-users solution that lets makers configure **dependent option-set (choice) fields** on any Dynamics 365 / Model-Driven App form — and *also* paints each option with a colored pill so users can spot the right value at a glance.
+Make your forms smarter — and easier to use — without writing a line of code.
 
-> Built and tested on Dynamics 365 Customer Service (Case form), but works on any model-driven entity with two choice fields.
+This solution lets administrators set up **dependent dropdowns** on any Dynamics 365 form (for example: when the user picks **Origin = Phone**, only show **Type = Question** or **Problem**). It also automatically paints each dropdown option with the color you configured in Power Platform, so users can spot the right choice at a glance.
 
----
-
-## ✨ What it does
-
-1. **Matrix admin UI** — pick an entity, a *controlling* choice field and a *dependent* choice field. A grid lets you tick which dependent values are allowed for each controlling value.
-2. **Multi-form registration** — register / unregister the runtime script on any number of forms with one click.
-3. **Runtime filtering** — at form load and on every change of the controlling field, the dependent field is filtered to the allowed values only.
-4. **Colored option pills** — the runtime auto-fetches each choice field's `Color` metadata and paints both the open dropdown options *and* the selected display with a soft-tinted pill (left border + matching background). Hover highlight is included for free.
-5. **Multi-document / portal-aware** — works even when the listbox renders in a portal layer attached to `window.top`.
-
-## 📦 What's in the box
-
-| Component | Logical Name | Purpose |
-|-----------|--------------|---------|
-| Custom table | `mau_dependentpicklistrule` | One row per controlling-value → allowed-dependent-values rule |
-| Web resource (HTML) | `mau_DependentPicklistAdmin.html` | Admin matrix UI |
-| Web resource (JS) | `mau_DependentPicklistRuntime.js` | Form runtime (v1) |
-| Web resource (JS) | `mau_DependentPicklistRuntimeV2.js` | Form runtime (v2 — same code, different name to bust UCI cache) |
-
-The runtime entry point is `MauDependentPicklist.onLoad` (registered as the form `OnLoad` handler).
+> Works on any table — standard or custom — and on any Choice (option set) field.
 
 ---
 
-## 🚀 Install (end users)
+## ✨ What it does for your team
 
-1. Download the latest **`DependentPicklists_managed.zip`** from the [Releases](../../releases) page.
-2. In your target environment: **Power Apps** → **Solutions** → **Import solution** → pick the zip → **Next** → **Import**.
-3. Open the solution and launch the **Dependent Picklist Admin** web resource (or surface it via a sitemap entry / bookmark).
-4. Select an entity + controlling field + dependent field, tick the allowed combinations, hit **Save rules**.
-5. In the **Forms** matrix, tick the form(s) you want the runtime registered on and click **Save**.
-6. Hard-refresh the target form (`Ctrl+F5`) — done.
-
-> Prefer the **unmanaged** zip if you want to keep the source editable in your dev environment.
+- **Cleaner forms** — users only see the choices that make sense for the situation they're in.
+- **Better data quality** — invalid combinations simply aren't available.
+- **Color cues** — the same color you set in your option set shows up on the form, both in the open dropdown and on the selected value.
+- **No code, no plugins** — everything is configured through a simple matrix screen.
 
 ---
 
-## 🛠️ Develop / contribute
+## 🚀 Install (5 minutes)
 
-Prereqs: Windows PowerShell 5+, [Power Platform CLI](https://learn.microsoft.com/power-platform/developer/cli/introduction) (`pac`), [GitHub CLI](https://cli.github.com/) (optional, for releases).
+1. Go to the [Releases page](../../releases) and download **`DependentPicklists_managed.zip`**.
+2. Open **[Power Apps](https://make.powerapps.com)** → make sure you're in the right environment (top-right corner).
+3. In the left menu click **Solutions** → **Import solution** → **Browse** → pick the zip you downloaded.
+4. Click **Next** → **Import**. Wait until you see "Solution imported successfully" (about a minute).
 
-```powershell
-# 1. Authenticate against your dev environment
-pac auth create --environment https://<yourorg>.crm.dynamics.com
-
-# 2. Edit files under .\webresources\
-
-# 3. Push the changed web resources + publish
-. .\scripts\dv.ps1
-foreach ($n in @('mau_DependentPicklistRuntime.js','mau_DependentPicklistRuntimeV2.js','mau_DependentPicklistAdmin.html')) {
-  $bytes = [IO.File]::ReadAllBytes("$PWD\webresources\$n")
-  $b64 = [Convert]::ToBase64String($bytes)
-  $id = (Invoke-Dv -Method GET -Path "/api/data/v9.2/webresourceset?`$select=webresourceid&`$filter=name eq '$n'").value[0].webresourceid
-  Invoke-Dv -Method PATCH -Path "/api/data/v9.2/webresourceset($id)" -Body @{content=$b64} | Out-Null
-}
-Invoke-Dv -Method POST -Path "/api/data/v9.2/PublishAllXml" -Body @{} | Out-Null
-
-# 4. Re-export the solution zip for a release
-pac solution export --name DependentPicklists --path .\dist\DependentPicklists.zip --overwrite
-pac solution export --name DependentPicklists --path .\dist\DependentPicklists_managed.zip --managed --overwrite
-```
-
-Numbered scripts in `scripts/` document the original bring-up of the solution (publisher, table, columns, web-resource upload, form patching). They're idempotent and can be re-run.
+That's it — the solution is in your environment.
 
 ---
 
-## 🧠 How it works
+## 🧭 Add the admin page to the Customer Service Admin Center
 
-- **Rules table** stores one row per `(entity, controlling field, controlling option value, dependent field, allowed dependent values)`. Allowed values are a comma-separated list of option codes.
-- **Runtime** uses `formContext.getAttribute(controllingField).addOnChange(...)` to react to changes. It removes disallowed dependent options via `control.removeOption(value)` and restores them later via `control.addOption({value, text}, index)` — so no metadata is mutated.
-- **Color injection** queries `EntityDefinitions(LogicalName='X')/Attributes(LogicalName='Y')/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName&$expand=OptionSet($select=Options)` once per field, builds a `byText` color map, then a MutationObserver + lightweight 100ms poll (only while a tracked combobox is expanded) keeps the pills painted across virtual-DOM rebuilds and portal layers.
-- **No metadata changes, no plugins, no custom controls** — pure web resources + a single configuration table.
+Most of your team won't go hunting for a web resource by URL. The cleanest way to expose the admin page is to add it as a navigation entry in the **Customer Service Admin Center** app, so it appears in the left menu just like any other setting.
+
+### Step 1 — Open the Customer Service Admin Center for editing
+
+1. In **[Power Apps](https://make.powerapps.com)**, click **Solutions** in the left menu.
+2. Open the **Default Solution** (or the unmanaged solution where you keep your customizations).
+3. Click **+ Add existing** → **App** → **Model-driven app** → tick **Customer Service admin center** → **Add**.
+4. After it appears in the solution, click **…** next to it → **Edit** → **Edit in preview**. The modern app designer opens in a new tab.
+
+### Step 2 — Add a new menu entry
+
+1. In the left **Pages** panel, scroll to the **Navigation** section and click it (the icon looks like a list/menu).
+2. Pick the **Group** where you want the entry to live (for example **Customer support**, or use **+ New group** to create one called **Customizations**).
+3. Click **+ New** → **Subarea**.
+4. On the right pane fill in:
+   - **Content type**: *Web resource*
+   - **URL**: `mau_DependentPicklistAdmin.html`
+   - **Title**: *Dependent Picklists*
+   - **Icon**: *Use default* (or pick the **Settings** icon)
+   - **ID**: `mau_dependentpicklists` (lowercase, no spaces)
+5. Click **Save** in the top-right, then **Publish**.
+
+### Step 3 — Try it
+
+1. Back in Power Apps, go to **Apps**, click **Customer Service admin center** → **Play**.
+2. In the left navigation you should now see **Dependent Picklists** under the group you picked.
+3. Click it — the matrix admin page opens.
+
+> **Tip:** the same web resource works in any model-driven app. To put it inside the **Customer Service Hub** or your own custom app, just repeat Step 2 in that app's site map.
 
 ---
 
-## ❓ Troubleshooting
+## 🎯 Set up your first dependent dropdown
 
-| Symptom | Fix |
-|---------|-----|
-| Nothing happens on the form | Hard-refresh (`Ctrl+F5`). UCI caches scripts very aggressively. |
-| Admin shows ✗ on a form you registered manually | Make sure the script library on the form is exactly `mau_DependentPicklistRuntime.js` *or* `mau_DependentPicklistRuntimeV2.js` and the handler is `MauDependentPicklist.onLoad`. The admin recognizes both filenames. |
-| Pills disappear after re-picking the same value | Should be fixed in v1.0.0.6. If you see it again, capture the console — the runtime logs `Color observer attached for fields: [...]`. |
+1. Open the **Dependent Picklists** page from the left navigation.
+2. Pick the **Table** (for example *Case*).
+3. Pick the **Controlling field** — the dropdown the user chooses **first** (for example *Origin*).
+4. Pick the **Dependent field** — the dropdown that should change based on the first one (for example *Type*).
+5. The matrix appears. **Tick the boxes** for each combination you want to allow:
+   - Each **row** is a value of the controlling field (Origin: Phone, Email, Web…).
+   - Each **column** is a value of the dependent field (Type: Question, Problem, Request…).
+   - Tick a box to allow that combination.
+   - **Leave a row empty** if you want to *block all* dependent values when that controlling value is picked.
+6. Scroll down to **Forms to apply runtime script to** and tick the form(s) where this should run (typically the Case form your agents use).
+7. Click **Save rules** and then **Save** under the forms list.
+8. Open any Case form and **hard refresh with Ctrl + F5**. Try it — pick *Origin = Phone* and watch the *Type* dropdown change.
+
+That's the whole loop. Come back any time to add, change, or remove rules.
+
+---
+
+## ❓ FAQ
+
+**Will this work for my custom table / custom choice field?**
+Yes. The solution doesn't care whether the table or field is standard (out-of-box) or custom — as long as both fields are Choice (option set) fields on the same form.
+
+**Where do the colors on the dropdown come from?**
+From the **color you set on each option** in Power Platform's choice editor (Solutions → your column → edit each option → Color). The runtime reads that color and paints the dropdown accordingly. If you didn't set a color for an option, that option just shows in plain text — no error.
+
+**A user changed something on the form and the dropdown looks wrong.**
+Ask them to do a hard refresh (**Ctrl + F5**). Dynamics caches form scripts very aggressively.
+
+**A new version of this solution was released — how do I know?**
+The admin page checks GitHub on every load. When a newer release is available, a small green **✨ Update** pill appears in the top-right corner of the page, next to the version number. Click it to go straight to the release notes and download the new zip.
+
+**Can I uninstall it cleanly?**
+Yes. Power Apps → Solutions → tick **Dependent Picklists** → **Delete**. Your business data, tables and choice fields are not affected — the solution only removes its own configuration table and the admin/runtime web resources.
+
+---
+
+## 🆕 Updating to a new version
+
+Download the latest **`DependentPicklists_managed.zip`** from [Releases](../../releases) and import it the same way you did the first time. Power Apps detects it as an upgrade and updates the existing solution in place. Your rules and form registrations are preserved.
 
 ---
 
