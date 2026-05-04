@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<title>Dependent Picklists Admin</title>
+<style>
+    :root {
+        --border: #e1dfdd;
+        --bg: #faf9f8;
+        --accent: #0078d4;
+        --text: #323130;
+        --muted: #605e5c;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: "Segoe UI", Arial, sans-serif; color: var(--text); background: var(--bg); }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 16px 24px 80px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .subtitle { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 280px; flex: 1; }
+    label { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .req { color: #a4262c; font-weight: 700; margin-left: 2px; }
+    .field.invalid select { border-color: #a4262c; box-shadow: 0 0 0 1px #a4262c; }
+    .field.invalid label { color: #a4262c; }
+    select, input[type="text"], button {
+        font-family: inherit; font-size: 14px; padding: 6px 10px;
+        border: 1px solid var(--border); border-radius: 2px; background: white;
+    }
+    select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+    /* Soft-blue selection in <select> lists (replaces default gray) */
+    select { accent-color: var(--accent); }
+    select[multiple], select[size] { background: #f5f7fa; }
+    select[multiple] option, select[size] option { background: #f5f7fa; padding: 3px 6px; }
+    select option:checked,
+    select option:hover {
+        background: #deecf9 linear-gradient(0deg, #deecf9, #deecf9);
+        color: var(--text);
+    }
+    select:focus option:checked {
+        background: #c7e0f4 linear-gradient(0deg, #c7e0f4, #c7e0f4);
+        color: var(--text);
+    }
+    button {
+        background: var(--accent); color: white; border-color: var(--accent);
+        cursor: pointer; padding: 8px 16px; font-weight: 600;
+    }
+    button.secondary { background: white; color: var(--text); }
+    button.success { background: #107c10; border-color: #107c10; color: white; }
+    button.success:hover:not(:disabled) { background: #0e6e0e; border-color: #0e6e0e; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toolbar { display: flex; gap: 8px; align-items: center; margin: 8px 0 16px; }
+    #status { color: var(--muted); font-size: 13px; min-height: 18px; }
+    #status.error { color: #a4262c; }
+    #status.success { color: #107c10; }
+    .matrix-wrap { overflow: auto; max-height: 60vh; border: 1px solid var(--border); background: white; }
+    table.matrix { border-collapse: collapse; font-size: 13px; }
+    table.matrix th, table.matrix td { border: 1px solid var(--border); padding: 6px 10px; text-align: center; white-space: nowrap; }
+    table.matrix thead th {
+        position: sticky; top: 0; background: #f3f2f1; z-index: 2;
+        writing-mode: vertical-rl; transform: rotate(180deg);
+        max-height: 220px; min-width: 32px;
+    }
+    table.matrix thead th.corner {
+        writing-mode: horizontal-tb; transform: none; text-align: left; left: 0; z-index: 3; min-width: 220px;
+    }
+    table.matrix tbody th {
+        position: sticky; left: 0; background: #f3f2f1; text-align: left; z-index: 1; max-width: 320px; white-space: normal;
+    }
+    table.matrix td input[type="checkbox"] { transform: scale(1.2); cursor: pointer; accent-color: var(--accent); }
+    table.matrix tr:hover td { background: #f3f9fd; }
+    table.matrix thead th.dep-banner {
+        writing-mode: horizontal-tb; transform: none; background: #eff6fc;
+        color: var(--accent); font-size: 12px; text-align: center; padding: 6px 8px;
+        border-bottom: 2px solid var(--accent);
+    }
+    table.matrix thead th.dep-banner-corner {
+        writing-mode: horizontal-tb; transform: none; background: #eff6fc;
+        border-bottom: 2px solid var(--accent);
+    }
+    .empty {
+        padding: 32px; text-align: center; color: var(--muted); font-style: italic;
+        background: white; border: 1px dashed var(--border);
+    }
+    .legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; background: #edebe9; margin-right: 6px; font-size: 12px; }
+
+    /* Title row + Learn more link */
+    .title-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .learn-more {
+        font-size: 13px; color: var(--accent); cursor: pointer; text-decoration: none;
+        display: inline-flex; align-items: center; gap: 4px; user-select: none;
+    }
+    .learn-more:hover { text-decoration: underline; }
+    .learn-more .info-ico {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 16px; height: 16px; border-radius: 50%;
+        background: var(--accent); color: white; font-size: 11px; font-weight: 700;
+        font-family: Georgia, serif; font-style: italic;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+        display: none; align-items: center; justify-content: center;
+        z-index: 9999; opacity: 0; transition: opacity 160ms ease;
+        backdrop-filter: blur(2px);
+    }
+    .modal-backdrop.open { display: flex; opacity: 1; }
+    .modal {
+        background: white; border-radius: 8px; max-width: 560px; width: calc(100% - 32px);
+        max-height: 85vh; overflow: auto;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+        transform: translateY(8px) scale(0.98); transition: transform 160ms ease;
+    }
+    .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+    .modal-header {
+        padding: 20px 24px 12px; display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(135deg, #0078d4 0%, #2b88d8 100%);
+        color: white; border-radius: 8px 8px 0 0;
+    }
+    .modal-header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+    .modal-close {
+        background: transparent; border: none; color: white; font-size: 22px; line-height: 1;
+        cursor: pointer; padding: 0 4px; opacity: 0.85;
+    }
+    .modal-close:hover { opacity: 1; }
+    .modal-body { padding: 20px 24px 24px; font-size: 14px; line-height: 1.55; color: var(--text); }
+    .modal-body p { margin: 0 0 12px; }
+    .modal-body h3 {
+        font-size: 14px; margin: 18px 0 8px; color: var(--accent);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .modal-body ol { margin: 0 0 12px; padding-left: 20px; }
+    .modal-body ol li { margin-bottom: 6px; }
+    .modal-body .example {
+        background: #f3f9fd; border-left: 3px solid var(--accent);
+        padding: 10px 14px; border-radius: 4px; margin: 12px 0; font-size: 13px;
+    }
+    .modal-footer {
+        padding: 12px 24px 20px; text-align: right;
+    }
+
+    /* App version badge (top-right of page) */
+    .app-version {
+        position: fixed; top: 12px; right: 16px; z-index: 50;
+        font-size: 11px; color: var(--muted);
+        background: white; border: 1px solid var(--border);
+        border-radius: 10px; padding: 2px 10px;
+        font-family: "Segoe UI", Arial, sans-serif; letter-spacing: 0.2px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+</style>
+</head>
+<body>
+<div class="app-version" id="appVersion">v1.0.0.6</div>
+<div class="wrap">
+    <div class="title-row">
+        <h1>Dependent Picklists Admin</h1>
+        <a class="learn-more" id="learnMoreLink" role="button" tabindex="0">
+            <span class="info-ico">i</span> Learn more
+        </a>
+    </div>
+    <p class="subtitle">Pick a table, a controlling Choice field and a dependent Choice field, then check the allowed combinations.</p>
+
+    <!-- Learn More Modal -->
+    <div class="modal-backdrop" id="learnMoreModal" role="dialog" aria-modal="true" aria-labelledby="learnMoreTitle">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="learnMoreTitle">About Dependent Picklists</h2>
+                <button class="modal-close" id="learnMoreClose" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>This app helps you control which choices users see in one dropdown based on what they pick in another dropdown — without writing any code.</p>
+
+                <h3>Why use it?</h3>
+                <p>Sometimes only a few options make sense together. Showing every option for every situation creates noise and bad data. With dependent picklists, the second dropdown automatically shows only the choices that fit the first one.</p>
+
+                <div class="example">
+                    <strong>Example:</strong> On a Case form, when the user picks <em>Origin = Phone</em>, you only want to allow <em>Type = Question</em> or <em>Problem</em>. When they pick <em>Origin = Email</em>, you want different options. This app lets you set that up in a few clicks.
+                </div>
+
+                <h3>How it works</h3>
+                <ol>
+                    <li><strong>Pick a table</strong> (for example, Case).</li>
+                    <li><strong>Pick the controlling field</strong> — the dropdown the user chooses from first.</li>
+                    <li><strong>Pick the dependent field</strong> — the dropdown that should change based on the first.</li>
+                    <li><strong>Check the boxes</strong> in the matrix to say which combinations are allowed.</li>
+                    <li><strong>Pick the forms</strong> where this should run, then click <em>Save</em>.</li>
+                </ol>
+
+                <h3>Good to know</h3>
+                <p>If you leave a row completely empty, that means no dependent options are allowed when the user picks that controlling value — the dependent dropdown will be blocked.</p>
+                <p>The colors you see on dropdown options come from the colors admins configured in Power Platform's choice editor — so the form looks consistent with the rest of your app.</p>
+            </div>
+            <div class="modal-footer">
+                <button id="learnMoreOk" type="button">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="field">
+            <label for="entitySelect">Table <span class="req">*</span></label>
+            <input type="text" id="entitySearch" placeholder="Search tables…" />
+            <select id="entitySelect" size="6"><option value="">Loading tables…</option></select>
+        </div>
+        <div class="field">
+            <label for="controllingSelect">Controlling field (Choice) <span class="req">*</span></label>
+            <input type="text" id="controllingSearch" placeholder="Search fields…" disabled />
+            <select id="controllingSelect" size="6" disabled><option value="">Pick a table first</option></select>
+        </div>
+        <div class="field">
+            <label for="dependentSelect">Dependent field (Choice) <span class="req">*</span></label>
+            <input type="text" id="dependentSearch" placeholder="Search fields…" disabled />
+            <select id="dependentSelect" size="6" disabled><option value="">Pick a table first</option></select>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="field" style="flex: 2;">
+            <label>Forms to apply runtime script to</label>
+            <div style="display:flex; gap:8px; align-items:center; margin-bottom:4px;">
+                <button id="formsAllBtn" class="secondary" type="button" disabled style="padding:4px 10px; font-size:12px;">Select all</button>
+                <button id="formsNoneBtn" class="secondary" type="button" disabled style="padding:4px 10px; font-size:12px;">Clear</button>
+                <button id="applyFormsBtn" type="button" disabled style="padding:4px 10px; font-size:12px;">Apply script to selected forms</button>
+                <span id="formsStatus" style="font-size:12px; color:var(--muted);"></span>
+            </div>
+            <select id="formsSelect" multiple size="6" disabled style="font-family:inherit;">
+                <option value="">Pick a table first</option>
+            </select>
+            <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+                Hold Ctrl/Cmd to multi-select. Forms already registered are marked with &check;.
+            </div>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <button id="clearBtn" class="secondary" disabled>Clear all</button>
+        <button id="saveBtn" class="success" disabled>Save rules</button>
+        <span id="status"></span>
+    </div>
+
+    <div id="matrix"></div>
+    <div class="legend">
+        <span class="pill">Rows</span> controlling field options &nbsp;
+        <span class="pill">Columns</span> dependent field options &nbsp;
+        Tick a cell to allow that dependent value when the controlling value is selected.
+        <br/><strong>Important:</strong> a row with <em>no</em> ticks means the dependent dropdown will be <strong>empty</strong> for that controlling value (nothing allowed).
+        Use the &ldquo;All&rdquo; button on a row to allow every dependent option for that row.
+    </div>
+</div>
+
+<script src="ClientGlobalContext.js.aspx"></script>
+<script>
+"use strict";
+(function () {
+    var TABLE = "mau_dependentpicklistrule";
+
+    var $ = function (id) { return document.getElementById(id); };
+
+    // Learn more modal wiring
+    (function setupLearnMore() {
+        var link = document.getElementById("learnMoreLink");
+        var modal = document.getElementById("learnMoreModal");
+        var closeBtn = document.getElementById("learnMoreClose");
+        var okBtn = document.getElementById("learnMoreOk");
+        if (!link || !modal) return;
+        function open() { modal.classList.add("open"); }
+        function close() { modal.classList.remove("open"); }
+        link.addEventListener("click", function (e) { e.preventDefault(); open(); });
+        link.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+        });
+        closeBtn.addEventListener("click", close);
+        okBtn.addEventListener("click", close);
+        modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && modal.classList.contains("open")) close();
+        });
+    })();
+
+    var statusEl = $("status");
+    var matrixEl = $("matrix");
+    var entitySel = $("entitySelect");
+    var ctrlSel = $("controllingSelect");
+    var depSel = $("dependentSelect");
+    var entitySearch = $("entitySearch");
+    var ctrlSearch = $("controllingSearch");
+    var depSearch = $("dependentSearch");
+
+    // Cached full option lists (label/value) so search can filter without re-fetching
+    var allEntityItems = [];
+    var allFieldItems = [];
+
+    var loadBtn = null; // removed; matrix auto-loads on dependent field selection
+    var saveBtn = $("saveBtn");
+    var clearBtn = $("clearBtn");
+
+    // Forms registration UI
+    var formsSel = $("formsSelect");
+    var formsAllBtn = $("formsAllBtn");
+    var formsNoneBtn = $("formsNoneBtn");
+    var applyFormsBtn = $("applyFormsBtn");
+    var formsStatusEl = $("formsStatus");
+    // Library used when injecting into new forms (current canonical version).
+    var SCRIPT_LIBRARY_NAME = "mau_DependentPicklistRuntimeV2.js";
+    var SCRIPT_HANDLER_FN = "MauDependentPicklists.onFormLoad";
+    // Any of these library names counts as "already registered" for detection.
+    // (handles legacy v1 file plus the current V2 file)
+    var SCRIPT_LIBRARY_ALIASES = [
+        "mau_DependentPicklistRuntime.js",
+        "mau_DependentPicklistRuntimeV2.js"
+    ];
+    function formHasScript(xml) {
+        if (!xml) return false;
+        if (xml.indexOf(SCRIPT_HANDLER_FN) < 0) return false;
+        for (var i = 0; i < SCRIPT_LIBRARY_ALIASES.length; i++) {
+            if (xml.indexOf(SCRIPT_LIBRARY_ALIASES[i]) >= 0) return true;
+        }
+        return false;
+    }
+
+    var state = {
+        entityLogicalName: null,
+        controllingField: null,
+        dependentField: null,
+        controllingOptions: [], // [{value, label}]
+        dependentOptions: [],
+        existingRules: [],      // server rows
+        // map<controllingValue, Set<dependentValue>>
+        selection: {}
+    };
+
+    function setStatus(msg, kind) {
+        statusEl.textContent = msg || "";
+        statusEl.className = kind || "";
+    }
+
+    function getClientUrl() {
+        try { return GetGlobalContext().getClientUrl(); }
+        catch (e) {
+            // Fallback: trim path after /WebResources/
+            var u = new URL(window.location.href);
+            return u.origin;
+        }
+    }
+
+    function api(path, opts) {
+        opts = opts || {};
+        var url = getClientUrl() + "/api/data/v9.2" + path;
+        var headers = Object.assign({
+            "OData-MaxVersion": "4.0",
+            "OData-Version": "4.0",
+            "Accept": "application/json",
+            "Content-Type": "application/json; charset=utf-8",
+            "Prefer": "return=representation"
+        }, opts.headers || {});
+        return fetch(url, {
+            method: opts.method || "GET",
+            headers: headers,
+            body: opts.body ? JSON.stringify(opts.body) : undefined,
+            credentials: "include"
+        }).then(function (r) {
+            if (!r.ok) {
+                return r.text().then(function (t) { throw new Error(r.status + " " + r.statusText + ": " + t); });
+            }
+            if (r.status === 204) return null;
+            return r.json();
+        });
+    }
+
+    // ---------------- Loaders ----------------
+
+    function loadEntities() {
+        setStatus("Loading tables…");
+        // Filter to user-customizable + non-private; include both system and custom
+        var qs = "/EntityDefinitions?$select=LogicalName,DisplayName,SchemaName,IsCustomizable,IsValidForAdvancedFind&$filter=IsIntersect eq false and IsLogicalEntity eq false and IsPrivate eq false";
+        return api(qs).then(function (res) {
+            var items = (res.value || [])
+                .filter(function (e) { return e.IsCustomizable && e.IsCustomizable.Value && e.IsValidForAdvancedFind; })
+                .map(function (e) {
+                    var label = (e.DisplayName && e.DisplayName.UserLocalizedLabel && e.DisplayName.UserLocalizedLabel.Label) || e.LogicalName;
+                    return { logical: e.LogicalName, label: label };
+                })
+                .sort(function (a, b) { return a.label.localeCompare(b.label); });
+            allEntityItems = items;
+            renderEntityOptions("");
+            setStatus("Loaded " + items.length + " tables.");
+        });
+    }
+
+    function renderEntityOptions(filter) {
+        var f = (filter || "").toLowerCase();
+        var items = !f ? allEntityItems : allEntityItems.filter(function (i) {
+            return i.label.toLowerCase().indexOf(f) >= 0 || i.logical.toLowerCase().indexOf(f) >= 0;
+        });
+        entitySel.innerHTML = '<option value="">-- Select table --</option>' +
+            items.map(function (i) { return '<option value="' + i.logical + '">' + escapeHtml(i.label) + ' (' + i.logical + ')</option>'; }).join("");
+    }
+
+    function renderFieldOptions(filter, selectEl) {
+        var f = (filter || "").toLowerCase();
+        var items = !f ? allFieldItems : allFieldItems.filter(function (i) {
+            return i.label.toLowerCase().indexOf(f) >= 0 || i.logical.toLowerCase().indexOf(f) >= 0;
+        });
+        var prev = selectEl.value;
+        selectEl.innerHTML = '<option value="">-- Select field --</option>' +
+            items.map(function (i) { return '<option value="' + i.logical + '">' + escapeHtml(i.label) + ' (' + i.logical + ')</option>'; }).join("");
+        if (prev) selectEl.value = prev;
+    }
+
+    function loadChoiceFields(entityLogicalName) {
+        setStatus("Loading Choice fields for " + entityLogicalName + "…");
+        var qs = "/EntityDefinitions(LogicalName='" + entityLogicalName + "')/Attributes/Microsoft.Dynamics.CRM.PicklistAttributeMetadata?$select=LogicalName,DisplayName,SchemaName&$expand=OptionSet";
+        return api(qs).then(function (res) {
+            var items = (res.value || []).map(function (a) {
+                var label = (a.DisplayName && a.DisplayName.UserLocalizedLabel && a.DisplayName.UserLocalizedLabel.Label) || a.LogicalName;
+                var opts = ((a.OptionSet && a.OptionSet.Options) || []).map(function (o) {
+                    return {
+                        value: o.Value,
+                        label: (o.Label && o.Label.UserLocalizedLabel && o.Label.UserLocalizedLabel.Label) || String(o.Value)
+                    };
+                });
+                return { logical: a.LogicalName, label: label, options: opts };
+            }).filter(function (i) { return i.options.length > 0; })
+              .sort(function (a, b) { return a.label.localeCompare(b.label); });
+
+            allFieldItems = items;
+            renderFieldOptions("", ctrlSel);
+            renderFieldOptions("", depSel);
+            ctrlSel.disabled = false; depSel.disabled = false;
+            ctrlSearch.disabled = false; depSearch.disabled = false;
+
+            // store
+            state.choiceFields = items;
+            setStatus("Found " + items.length + " Choice fields.");
+        });
+    }
+
+    function loadRules() {
+        var ent = state.entityLogicalName, c = state.controllingField, d = state.dependentField;
+        if (!ent || !c || !d) return Promise.resolve([]);
+        var qs = "/" + TABLE + "s?$filter=mau_entitylogicalname eq '" + ent + "' and mau_controllingfieldlogicalname eq '" + c + "' and mau_dependentfieldlogicalname eq '" + d + "'";
+        return api(qs).then(function (res) { return res.value || []; });
+    }
+
+    // ---------------- Rendering ----------------
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+        });
+    }
+
+    function renderMatrix() {
+        if (!state.controllingOptions.length || !state.dependentOptions.length) {
+            matrixEl.innerHTML = '<div class="empty">No options to display.</div>';
+            return;
+        }
+        // Resolve display labels for controlling/dependent fields
+        var cMeta = (state.choiceFields || []).find(function (f) { return f.logical === state.controllingField; });
+        var dMeta = (state.choiceFields || []).find(function (f) { return f.logical === state.dependentField; });
+        var cLabel = (cMeta && cMeta.label) || state.controllingField;
+        var dLabel = (dMeta && dMeta.label) || state.dependentField;
+
+        var html = ['<div class="matrix-wrap"><table class="matrix"><thead>'];
+        // Top banner row: dependent field name spanning all option columns
+        html.push('<tr><th class="dep-banner-corner"></th>');
+        html.push('<th class="dep-banner" colspan="' + state.dependentOptions.length + '">Dependent: <strong>' + escapeHtml(dLabel) + '</strong> <span style="color:var(--muted);font-weight:normal;">(' + escapeHtml(state.dependentField) + ')</span></th>');
+        html.push('</tr><tr>');
+        html.push('<th class="corner"><div><strong>' + escapeHtml(cLabel) + '</strong> <span style="color:var(--muted)">(' + escapeHtml(state.controllingField) + ')</span></div><div style="color:var(--muted);font-size:11px;font-weight:normal;">controlling field &nbsp;\u2193</div></th>');
+        state.dependentOptions.forEach(function (d) {
+            html.push('<th title="' + escapeHtml(dLabel) + ': ' + escapeHtml(d.label) + ' (' + d.value + ')">' + escapeHtml(d.label) + '</th>');
+        });
+        html.push('</tr></thead><tbody>');
+        state.controllingOptions.forEach(function (c) {
+            html.push('<tr><th title="' + escapeHtml(cLabel) + ': ' + escapeHtml(c.label) + ' (' + c.value + ')">'
+                + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+                + '<span>' + escapeHtml(c.label) + '</span>'
+                + '<span style="display:inline-flex;gap:4px;">'
+                + '<button type="button" class="row-all" data-c="' + c.value + '" style="font-size:11px;padding:2px 6px;background:white;color:var(--accent);border:1px solid var(--accent);border-radius:2px;cursor:pointer;" title="Allow all dependent values for this row">All</button>'
+                + '<button type="button" class="row-none" data-c="' + c.value + '" style="font-size:11px;padding:2px 6px;background:white;color:var(--text);border:1px solid var(--border);border-radius:2px;cursor:pointer;" title="Clear row (will block all when selected)">None</button>'
+                + '</span></div></th>');
+            state.dependentOptions.forEach(function (d) {
+                var checked = state.selection[c.value] && state.selection[c.value][d.value] ? "checked" : "";
+                html.push('<td><input type="checkbox" data-c="' + c.value + '" data-d="' + d.value + '" ' + checked + ' /></td>');
+            });
+            html.push('</tr>');
+        });
+        html.push('</tbody></table></div>');
+        matrixEl.innerHTML = html.join("");
+
+        matrixEl.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+            cb.addEventListener("change", function () {
+                var c = Number(cb.getAttribute("data-c"));
+                var d = Number(cb.getAttribute("data-d"));
+                if (!state.selection[c]) state.selection[c] = {};
+                if (cb.checked) state.selection[c][d] = true;
+                else delete state.selection[c][d];
+            });
+        });
+        matrixEl.querySelectorAll('button.row-all').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var c = Number(btn.getAttribute('data-c'));
+                state.selection[c] = {};
+                state.dependentOptions.forEach(function (d) { state.selection[c][d.value] = true; });
+                renderMatrix();
+            });
+        });
+        matrixEl.querySelectorAll('button.row-none').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var c = Number(btn.getAttribute('data-c'));
+                state.selection[c] = {};
+                renderMatrix();
+            });
+        });
+        saveBtn.disabled = false;
+        clearBtn.disabled = false;
+    }
+
+    // ---------------- Save / Clear ----------------
+
+    function buildDesiredRows() {
+        // Write a row for EVERY controlling option in the matrix.
+        // Empty selection (no ticks for that row) => allowed=[] => runtime blocks all.
+        // To express "no restriction", admin must use the 'All' row button.
+        var rows = [];
+        state.controllingOptions.forEach(function (c) {
+            var sel = state.selection[c.value] || {};
+            var allowed = Object.keys(sel).map(Number).sort(function (a, b) { return a - b; });
+            rows.push({
+                "mau_name": state.entityLogicalName + "|" + state.controllingField + "=" + c.value + "->" + state.dependentField,
+                "mau_entitylogicalname": state.entityLogicalName,
+                "mau_controllingfieldlogicalname": state.controllingField,
+                "mau_dependentfieldlogicalname": state.dependentField,
+                "mau_controllingoptionvalue": c.value,
+                "mau_alloweddependentoptionvalues": JSON.stringify(allowed),
+                "mau_isactive": true
+            });
+        });
+        return rows;
+    }
+
+    function saveAll() {
+        // Validate mandatory selections before allowing save.
+        var missing = [];
+        // Clear prior invalid markers
+        document.querySelectorAll('.field.invalid').forEach(function (el) { el.classList.remove('invalid'); });
+        function markInvalid(selectId) {
+            var sel = document.getElementById(selectId);
+            if (sel && sel.parentElement) sel.parentElement.classList.add('invalid');
+        }
+        if (!state.entityLogicalName)  { missing.push('Table');                     markInvalid('entitySelect'); }
+        if (!state.controllingField)   { missing.push('Controlling field (Choice)'); markInvalid('controllingSelect'); }
+        if (!state.dependentField)     { missing.push('Dependent field (Choice)');   markInvalid('dependentSelect'); }
+        if (state.controllingField && state.dependentField && state.controllingField === state.dependentField) {
+            setStatus('Controlling field and Dependent field must be different.', 'error');
+            markInvalid('controllingSelect'); markInvalid('dependentSelect');
+            return;
+        }
+        if (missing.length) {
+            setStatus('Please fill in the required field(s): ' + missing.join(', ') + '.', 'error');
+            return;
+        }
+
+        setStatus("Saving…");
+        saveBtn.disabled = true;
+
+        var desired = buildDesiredRows();
+        var existing = state.existingRules.slice();
+
+        // Build map by controllingOptionValue
+        var existingByVal = {};
+        existing.forEach(function (e) { existingByVal[Number(e.mau_controllingoptionvalue)] = e; });
+        var desiredByVal = {};
+        desired.forEach(function (d) { desiredByVal[Number(d.mau_controllingoptionvalue)] = d; });
+
+        var ops = [];
+
+        // Upsert: update existing if changed, create if new
+        Object.keys(desiredByVal).forEach(function (vStr) {
+            var v = Number(vStr);
+            var d = desiredByVal[v];
+            var e = existingByVal[v];
+            if (e) {
+                if (e.mau_alloweddependentoptionvalues !== d.mau_alloweddependentoptionvalues || e.mau_isactive !== true) {
+                    ops.push(api("/" + TABLE + "s(" + e.mau_dependentpicklistruleid + ")", { method: "PATCH", body: d }));
+                }
+            } else {
+                ops.push(api("/" + TABLE + "s", { method: "POST", body: d }));
+            }
+        });
+        // Delete rows that no longer have selections
+        existing.forEach(function (e) {
+            var v = Number(e.mau_controllingoptionvalue);
+            if (!desiredByVal[v]) {
+                ops.push(api("/" + TABLE + "s(" + e.mau_dependentpicklistruleid + ")", { method: "DELETE" }));
+            }
+        });
+
+        if (!ops.length) { setStatus("Nothing to save.", "success"); saveBtn.disabled = false; return; }
+
+        Promise.all(ops).then(function () {
+            setStatus("Saved " + ops.length + " change(s).", "success");
+            return loadRules().then(function (rows) {
+                state.existingRules = rows;
+                saveBtn.disabled = false;
+            });
+        }).catch(function (err) {
+            console.error(err);
+            setStatus("Save failed: " + err.message, "error");
+            saveBtn.disabled = false;
+        });
+    }
+
+    function clearAll() {
+        if (!confirm("Clear all selections in the matrix? This does NOT delete saved rules until you click Save.")) return;
+        state.selection = {};
+        renderMatrix();
+        setStatus("Cleared selections (not yet saved).");
+    }
+
+    // ---------------- Forms registration ----------------
+
+    // Cached forms list for the current entity
+    var _formsCache = []; // [{formid,name,formxml,hasScript}]
+
+    function loadForms(entityLogicalName) {
+        formsStatusEl.textContent = "Loading forms…";
+        formsSel.disabled = true;
+        formsAllBtn.disabled = true; formsNoneBtn.disabled = true; applyFormsBtn.disabled = true;
+        formsSel.innerHTML = '<option value="">Loading…</option>';
+        // type 2 = Main form; formactivationstate 1 = Active
+        var qs = "/systemforms?$select=formid,name,formxml,type,formactivationstate&$filter=objecttypecode eq '" + entityLogicalName + "' and type eq 2 and formactivationstate eq 1";
+        return api(qs).then(function (res) {
+            var rows = (res.value || []).map(function (f) {
+                var xml = f.formxml || "";
+                var hasScript = formHasScript(xml);
+                return { formid: f.formid, name: f.name, formxml: xml, hasScript: hasScript };
+            }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+            _formsCache = rows;
+            formsSel.innerHTML = rows.map(function (r) {
+                var mark = r.hasScript ? "\u2713 " : "";
+                return '<option value="' + r.formid + '"' + (r.hasScript ? ' selected' : '') + '>' + mark + escapeHtml(r.name) + '</option>';
+            }).join("");
+            formsSel.disabled = false;
+            formsAllBtn.disabled = false; formsNoneBtn.disabled = false; applyFormsBtn.disabled = false;
+            var registered = rows.filter(function (r) { return r.hasScript; }).length;
+            formsStatusEl.textContent = rows.length + " active main form(s); " + registered + " already registered.";
+        }).catch(function (e) {
+            formsStatusEl.textContent = "Error: " + e.message;
+        });
+    }
+
+    function injectScriptIntoFormXml(formXml) {
+        // Returns { xml, changed } — adds the Library + onload Handler if missing.
+        // Safe DOM manipulation; preserves the rest of the formxml verbatim.
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(formXml, "text/xml");
+        if (doc.getElementsByTagName("parsererror").length) {
+            throw new Error("Failed to parse formxml.");
+        }
+        var formEl = doc.documentElement; // <form>
+        var changed = false;
+
+        // formLibraries
+        var libs = formEl.getElementsByTagName("formLibraries")[0];
+        if (!libs) {
+            libs = doc.createElement("formLibraries");
+            formEl.insertBefore(libs, formEl.firstChild);
+            changed = true;
+        }
+        var hasLib = false;
+        var libNodes = libs.getElementsByTagName("Library");
+        for (var i = 0; i < libNodes.length; i++) {
+            var libName = libNodes[i].getAttribute("name");
+            if (SCRIPT_LIBRARY_ALIASES.indexOf(libName) >= 0) { hasLib = true; break; }
+        }
+        if (!hasLib) {
+            var lib = doc.createElement("Library");
+            lib.setAttribute("name", SCRIPT_LIBRARY_NAME);
+            lib.setAttribute("libraryUniqueId", "{" + newGuid() + "}");
+            libs.appendChild(lib);
+            changed = true;
+        }
+
+        // events/event[name=onload]/Handlers/Handler
+        var events = formEl.getElementsByTagName("events")[0];
+        if (!events) {
+            events = doc.createElement("events");
+            formEl.appendChild(events);
+            changed = true;
+        }
+        var onloadEv = null;
+        var evNodes = events.getElementsByTagName("event");
+        for (var j = 0; j < evNodes.length; j++) {
+            if (evNodes[j].getAttribute("name") === "onload") { onloadEv = evNodes[j]; break; }
+        }
+        if (!onloadEv) {
+            onloadEv = doc.createElement("event");
+            onloadEv.setAttribute("name", "onload");
+            onloadEv.setAttribute("application", "false");
+            onloadEv.setAttribute("active", "false");
+            var hs = doc.createElement("Handlers");
+            onloadEv.appendChild(hs);
+            events.appendChild(onloadEv);
+            changed = true;
+        }
+        var handlers = onloadEv.getElementsByTagName("Handlers")[0];
+        if (!handlers) { handlers = doc.createElement("Handlers"); onloadEv.appendChild(handlers); changed = true; }
+        var hasHandler = false;
+        var hNodes = handlers.getElementsByTagName("Handler");
+        for (var k = 0; k < hNodes.length; k++) {
+            if (hNodes[k].getAttribute("functionName") === SCRIPT_HANDLER_FN
+                && SCRIPT_LIBRARY_ALIASES.indexOf(hNodes[k].getAttribute("libraryName")) >= 0) { hasHandler = true; break; }
+        }
+        if (!hasHandler) {
+            var h = doc.createElement("Handler");
+            h.setAttribute("functionName", SCRIPT_HANDLER_FN);
+            h.setAttribute("libraryName", SCRIPT_LIBRARY_NAME);
+            h.setAttribute("handlerUniqueId", "{" + newGuid() + "}");
+            h.setAttribute("enabled", "true");
+            h.setAttribute("parameters", "");
+            h.setAttribute("passExecutionContext", "true");
+            handlers.appendChild(h);
+            changed = true;
+        }
+
+        var serializer = new XMLSerializer();
+        return { xml: serializer.serializeToString(doc), changed: changed };
+    }
+
+    function newGuid() {
+        // RFC4122 v4-ish; sufficient for unique IDs in formxml.
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0, v = c === "x" ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    function publishForms(formIds) {
+        // PublishXml expects <importexportxml><forms><form>{guid}</form>...</forms></importexportxml>
+        var inner = formIds.map(function (id) {
+            // strip any braces
+            var g = String(id).replace(/[{}]/g, "");
+            return "<form>{" + g + "}</form>";
+        }).join("");
+        var xml = "<importexportxml><forms>" + inner + "</forms></importexportxml>";
+        return api("/PublishXml", { method: "POST", body: { ParameterXml: xml } });
+    }
+
+    function applyToSelectedForms() {
+        var selected = Array.from(formsSel.selectedOptions).map(function (o) { return o.value; }).filter(Boolean);
+        if (!selected.length) { formsStatusEl.textContent = "Pick at least one form."; return; }
+        if (!confirm("Register the runtime script on " + selected.length + " form(s)?\n\nThe form XML will be patched and the forms published. Existing form customizations are preserved.")) return;
+
+        applyFormsBtn.disabled = true;
+        formsStatusEl.textContent = "Patching " + selected.length + " form(s)…";
+        var changedFormIds = [];
+        var alreadyOk = 0;
+        var failures = [];
+
+        var work = selected.reduce(function (p, formid) {
+            return p.then(function () {
+                var meta = _formsCache.find(function (f) { return f.formid === formid; });
+                if (!meta) return;
+                var result;
+                try { result = injectScriptIntoFormXml(meta.formxml); }
+                catch (e) { failures.push({ formid: formid, name: meta.name, error: e.message }); return; }
+                if (!result.changed) { alreadyOk++; return; }
+                return api("/systemforms(" + formid + ")", { method: "PATCH", body: { formxml: result.xml } })
+                    .then(function () { changedFormIds.push(formid); })
+                    .catch(function (e) { failures.push({ formid: formid, name: meta.name, error: e.message }); });
+            });
+        }, Promise.resolve());
+
+        work.then(function () {
+            if (changedFormIds.length) {
+                formsStatusEl.textContent = "Publishing " + changedFormIds.length + " form(s)…";
+                return publishForms(changedFormIds);
+            }
+        }).then(function () {
+            var msg = "Done. Updated " + changedFormIds.length + ", already registered " + alreadyOk;
+            if (failures.length) msg += ", " + failures.length + " failed";
+            formsStatusEl.textContent = msg;
+            if (failures.length) {
+                console.warn("Form registration failures:", failures);
+                alert("Some forms failed:\n" + failures.map(function (f) { return f.name + ": " + f.error; }).join("\n"));
+            }
+            // Refresh the forms panel to update the checkmarks
+            return loadForms(state.entityLogicalName);
+        }).catch(function (e) {
+            formsStatusEl.textContent = "Error: " + e.message;
+        }).then(function () {
+            applyFormsBtn.disabled = false;
+        });
+    }
+
+    // ---------------- Wire-up ----------------
+
+    entitySel.addEventListener("change", function () {
+        state.entityLogicalName = entitySel.value || null;
+        state.controllingField = null; state.dependentField = null;
+        allFieldItems = [];
+        ctrlSel.innerHTML = '<option value="">-- Select field --</option>'; ctrlSel.disabled = true;
+        depSel.innerHTML = '<option value="">-- Select field --</option>'; depSel.disabled = true;
+        ctrlSearch.value = ""; depSearch.value = "";
+        ctrlSearch.disabled = true; depSearch.disabled = true;
+        matrixEl.innerHTML = "";
+        saveBtn.disabled = true; clearBtn.disabled = true;
+        // Reset forms panel
+        formsSel.innerHTML = '<option value="">Pick a table first</option>';
+        formsSel.disabled = true; formsAllBtn.disabled = true; formsNoneBtn.disabled = true; applyFormsBtn.disabled = true;
+        formsStatusEl.textContent = "";
+        if (!state.entityLogicalName) return;
+        loadChoiceFields(state.entityLogicalName).catch(function (e) { setStatus(e.message, "error"); });
+        loadForms(state.entityLogicalName);
+    });
+
+    entitySearch.addEventListener("input", function () { renderEntityOptions(entitySearch.value); });
+    ctrlSearch.addEventListener("input", function () { renderFieldOptions(ctrlSearch.value, ctrlSel); });
+    depSearch.addEventListener("input", function () { renderFieldOptions(depSearch.value, depSel); });
+
+    function maybeAutoLoad() {
+        if (state.entityLogicalName && ctrlSel.value && depSel.value && ctrlSel.value !== depSel.value) {
+            loadMatrixNow();
+        }
+    }
+
+    function loadMatrixNow() {
+        var cField = state.choiceFields.find(function (f) { return f.logical === state.controllingField; });
+        var dField = state.choiceFields.find(function (f) { return f.logical === state.dependentField; });
+        if (!cField || !dField) { setStatus("Field not found.", "error"); return; }
+        state.controllingOptions = cField.options.slice();
+        state.dependentOptions = dField.options.slice();
+        state.selection = {};
+        setStatus("Loading existing rules…");
+        loadRules().then(function (rows) {
+            state.existingRules = rows;
+            rows.forEach(function (r) {
+                var cv = Number(r.mau_controllingoptionvalue);
+                var allowed = [];
+                try { allowed = JSON.parse(r.mau_alloweddependentoptionvalues || "[]").map(Number); } catch (e) {}
+                state.selection[cv] = {};
+                allowed.forEach(function (dv) { state.selection[cv][dv] = true; });
+            });
+            renderMatrix();
+            setStatus("Loaded " + rows.length + " existing rule row(s).", "success");
+        }).catch(function (e) { setStatus(e.message, "error"); });
+    }
+    ctrlSel.addEventListener("change", function () { state.controllingField = ctrlSel.value || null; maybeAutoLoad(); });
+    depSel.addEventListener("change", function () { state.dependentField = depSel.value || null; maybeAutoLoad(); });
+
+    saveBtn.addEventListener("click", saveAll);
+    clearBtn.addEventListener("click", clearAll);
+
+    formsAllBtn.addEventListener("click", function () {
+        Array.from(formsSel.options).forEach(function (o) { if (o.value) o.selected = true; });
+    });
+    formsNoneBtn.addEventListener("click", function () {
+        Array.from(formsSel.options).forEach(function (o) { o.selected = false; });
+    });
+    applyFormsBtn.addEventListener("click", applyToSelectedForms);
+
+    // Boot
+    loadEntities().catch(function (e) { setStatus(e.message, "error"); });
+})();
+</script>
+</body>
+</html>

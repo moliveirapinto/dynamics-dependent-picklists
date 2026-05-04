@@ -1,0 +1,19 @@
+## Build / export artifacts
+dist/
+out/
+*.zip
+
+## Local credentials & inspection dumps
+*.local.*
+**/.pac/
+*.log
+inspect-*.json
+inspect-*.xml
+form-export-*/
+form-import-*/
+
+## OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
