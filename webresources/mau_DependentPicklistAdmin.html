@@ -28,18 +28,22 @@
         border: 1px solid var(--border); border-radius: 2px; background: white;
     }
     select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-    /* Soft-blue selection in <select> lists (replaces default gray) */
-    select { accent-color: var(--accent); }
-    select[multiple], select[size] { background: #f5f7fa; }
-    select[multiple] option, select[size] option { background: #f5f7fa; padding: 3px 6px; }
+    /* Soft-blue selection in <select> lists (replaces default gray).
+       Background stays white; only the highlighted/selected option uses soft blue with dark text. */
+    select { accent-color: var(--accent); background: white; color: var(--text); }
+    select option { background: white; color: var(--text); padding: 3px 6px; }
     select option:checked,
-    select option:hover {
-        background: #deecf9 linear-gradient(0deg, #deecf9, #deecf9);
-        color: var(--text);
+    select option:hover,
+    select option:focus,
+    select option:active {
+        background: #deecf9 linear-gradient(0deg, #deecf9, #deecf9) !important;
+        color: var(--text) !important;
+        -webkit-text-fill-color: var(--text) !important;
     }
     select:focus option:checked {
-        background: #c7e0f4 linear-gradient(0deg, #c7e0f4, #c7e0f4);
-        color: var(--text);
+        background: #c7e0f4 linear-gradient(0deg, #c7e0f4, #c7e0f4) !important;
+        color: var(--text) !important;
+        -webkit-text-fill-color: var(--text) !important;
     }
     button {
         background: var(--accent); color: white; border-color: var(--accent);
@@ -147,14 +151,37 @@
         position: fixed; top: 12px; right: 16px; z-index: 50;
         font-size: 11px; color: var(--muted);
         background: white; border: 1px solid var(--border);
-        border-radius: 10px; padding: 2px 10px;
+        border-radius: 10px; padding: 4px 10px;
         font-family: "Segoe UI", Arial, sans-serif; letter-spacing: 0.2px;
         box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        display: inline-flex; align-items: center; gap: 8px;
+    }
+    .app-version a { color: var(--accent); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+    .app-version a:hover { text-decoration: underline; }
+    .app-version .gh-ico { width: 12px; height: 12px; fill: currentColor; }
+    .app-version .sep { width: 1px; height: 12px; background: var(--border); }
+    .app-version .upd {
+        background: linear-gradient(135deg, #107c10, #0e6e0e); color: white;
+        border-radius: 8px; padding: 2px 8px; font-weight: 600; font-size: 10.5px;
+        text-decoration: none; animation: pulse-upd 1.8s ease-in-out infinite;
+    }
+    .app-version .upd:hover { text-decoration: none; opacity: 0.92; }
+    @keyframes pulse-upd {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(16,124,16,0.5); }
+        50%      { box-shadow: 0 0 0 6px rgba(16,124,16,0); }
     }
 </style>
 </head>
 <body>
-<div class="app-version" id="appVersion">v1.0.0.6</div>
+<div class="app-version" id="appVersion">
+    <span id="appVersionText">v1.0.1.0</span>
+    <span class="sep"></span>
+    <a href="https://github.com/moliveirapinto/dynamics-dependent-picklists" target="_blank" rel="noopener" title="View source on GitHub">
+        <svg class="gh-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+    </a>
+    <span id="appUpdateSlot"></span>
+</div>
 <div class="wrap">
     <div class="title-row">
         <h1>Dependent Picklists Admin</h1>
@@ -866,6 +893,49 @@
 
     // Boot
     loadEntities().catch(function (e) { setStatus(e.message, "error"); });
+
+    // ---- Update check against GitHub Releases ----
+    // Compares current version (text in #appVersionText, e.g. "v1.0.0.6")
+    // with the latest published release tag. If newer is available, shows a
+    // small "Update available" pill linking to the release page. Fully
+    // non-blocking and silent on failure (no internet, blocked CSP, etc.).
+    (function checkForUpdates() {
+        try {
+            var REPO = "moliveirapinto/dynamics-dependent-picklists";
+            var slot = document.getElementById("appUpdateSlot");
+            var cur = (document.getElementById("appVersionText").textContent || "").trim().replace(/^v/i, "");
+            if (!slot || !cur) return;
+
+            function parts(v) {
+                return String(v || "").replace(/^v/i, "").split(/[.\-]/).map(function (n) {
+                    var x = parseInt(n, 10); return isNaN(x) ? 0 : x;
+                });
+            }
+            function isNewer(a, b) { // true if a > b
+                var pa = parts(a), pb = parts(b);
+                var len = Math.max(pa.length, pb.length);
+                for (var i = 0; i < len; i++) {
+                    var x = pa[i] || 0, y = pb[i] || 0;
+                    if (x !== y) return x > y;
+                }
+                return false;
+            }
+
+            fetch("https://api.github.com/repos/" + REPO + "/releases/latest", {
+                headers: { "Accept": "application/vnd.github+json" }
+            }).then(function (r) {
+                if (!r.ok) throw new Error("status " + r.status);
+                return r.json();
+            }).then(function (rel) {
+                var tag = rel && rel.tag_name;
+                if (!tag) return;
+                if (isNewer(tag, cur)) {
+                    var url = rel.html_url || ("https://github.com/" + REPO + "/releases/latest");
+                    slot.innerHTML = '<a class="upd" href="' + url + '" target="_blank" rel="noopener" title="A newer release is available on GitHub">&#x2728; Update ' + tag + '</a>';
+                }
+            }).catch(function () { /* silent */ });
+        } catch (e) { /* silent */ }
+    })();
 })();
 </script>
 </body>
