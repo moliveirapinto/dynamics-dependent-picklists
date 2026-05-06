@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $adminBytes = [IO.File]::ReadAllBytes((Resolve-Path 'webresources\mau_DependentPicklistAdmin.html'))
-$newVersion = '1.1.5.0'
+$newVersion = '1.1.6.0'
 
 foreach ($zipName in 'DependentPicklists.zip','DependentPicklists_managed.zip') {
     $zipPath = (Resolve-Path "dist\$zipName").Path
