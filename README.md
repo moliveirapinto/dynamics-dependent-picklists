@@ -8,6 +8,14 @@ This solution lets administrators set up **dependent dropdowns** on any Dynamics
 
 ---
 
+## 🆕 Updating to a new version
+
+**Good news — you don't have to check for updates yourself.** Every time you open the **Dependent Picklists** admin page, it quietly checks GitHub for a newer release. When one is available, a small green **✨ Update** pill appears in the top-right corner next to the version number, along with a one-click **Update now** button that downloads the latest managed solution and imports it into your environment for you. Your rules and form registrations are preserved.
+
+Prefer to do it manually? Just download the latest **`DependentPicklists_managed.zip`** from [Releases](../../releases) and import it the same way you did the first time — Power Apps detects it as an upgrade and updates the solution in place.
+
+---
+
 ## ✨ What it does for your team
 
 - **Cleaner forms** — users only see the choices that make sense for the situation they're in.
@@ -127,12 +135,6 @@ The admin page checks GitHub on every load. When a newer release is available, a
 
 **Can I uninstall it cleanly?**
 Yes. Power Apps → Solutions → tick **Dependent Picklists** → **Delete**. Your business data, tables and choice fields are not affected — the solution only removes its own configuration table and the admin/runtime web resources.
-
----
-
-## 🆕 Updating to a new version
-
-Download the latest **`DependentPicklists_managed.zip`** from [Releases](../../releases) and import it the same way you did the first time. Power Apps detects it as an upgrade and updates the existing solution in place. Your rules and form registrations are preserved.
 
 ---
 
