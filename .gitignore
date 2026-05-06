@@ -3,6 +3,11 @@ dist/
 out/
 *.zip
 
+## Tracked release artifacts (mirrored for jsDelivr CDN / raw.githubusercontent.com
+## so the in-app "Update now" button can fetch them with CORS).
+!releases/
+!releases/*.zip
+
 ## Local credentials & inspection dumps
 *.local.*
 **/.pac/

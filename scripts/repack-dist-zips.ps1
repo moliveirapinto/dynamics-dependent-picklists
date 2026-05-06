@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $adminBytes = [IO.File]::ReadAllBytes((Resolve-Path 'webresources\mau_DependentPicklistAdmin.html'))
-$newVersion = '1.1.2.0'
+$newVersion = '1.1.3.0'
 
 foreach ($zipName in 'DependentPicklists.zip','DependentPicklists_managed.zip') {
     $zipPath = (Resolve-Path "dist\$zipName").Path
@@ -34,8 +34,13 @@ foreach ($zipName in 'DependentPicklists.zip','DependentPicklists_managed.zip') 
     $solXml = [regex]::Replace($solXml, '<Version>[^<]+</Version>', "<Version>$newVersion</Version>", 1)
 
     # Replace admin html
-    $adminKey = ($entries.Keys | Where-Object { $_ -like '*mau_DependentPicklistAdmin*' })[0]
-    if ($adminKey) { $entries[$adminKey] = $adminBytes }
+    $adminKey = @($entries.Keys | Where-Object { $_ -like '*mau_DependentPicklistAdmin*' })[0]
+    if ($adminKey) {
+        $entries[$adminKey] = $adminBytes
+        Write-Host "  replaced $adminKey ($($adminBytes.Length) bytes)"
+    } else {
+        Write-Warning "  admin html entry NOT found in $zipName"
+    }
 
     # Write fresh zip
     $newZip = "$tmp\new.zip"
