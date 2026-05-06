@@ -181,7 +181,7 @@
 </head>
 <body>
 <div class="app-version" id="appVersion">
-    <span id="appVersionText">v1.1.6.0</span>
+    <span id="appVersionText">v1.1.7.0</span>
     <span class="sep"></span>
     <a href="https://github.com/moliveirapinto/dynamics-dependent-picklists" target="_blank" rel="noopener" title="View source on GitHub">
         <svg class="gh-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -1320,9 +1320,13 @@
                     return blobToBase64(blob);
                 })
                 .then(function (b64) {
-                    // Step 2: call ImportSolution Web API action.
+                    // Step 2: call ImportSolutionAsync (the synchronous ImportSolution
+                    // hits a ~2 minute gateway timeout and returns HTTP 500 even though
+                    // the import keeps running server-side). Async returns immediately
+                    // with an AsyncOperationId we can poll.
                     var importJobId = newGuid();
-                    return fetch(clientUrl + "/api/data/v9.2/ImportSolution", {
+                    btn.textContent = "Importing... 0%";
+                    return fetch(clientUrl + "/api/data/v9.2/ImportSolutionAsync", {
                         method: "POST",
                         credentials: "include",
                         headers: {
@@ -1345,9 +1349,14 @@
                             return r.text().then(function (t) {
                                 var msg = t;
                                 try { msg = (JSON.parse(t).error || {}).message || t; } catch (e) { }
-                                throw new Error("Import failed: " + msg);
+                                throw new Error("Import start failed (HTTP " + r.status + "): " + msg);
                             });
                         }
+                        return r.json();
+                    }).then(function (resp) {
+                        var asyncOpId = resp && (resp.AsyncOperationId || resp.asyncoperationid);
+                        if (!asyncOpId) throw new Error("ImportSolutionAsync did not return AsyncOperationId");
+                        return pollImport(clientUrl, asyncOpId, importJobId, btn);
                     });
                 })
                 .then(function () {
@@ -1370,6 +1379,52 @@
                         "\n\nA new tab has been opened to the release page.\n" +
                         "To finish: download the zip and import it via Power Apps \u2192 Solutions \u2192 Import solution.");
                 });
+        }
+
+        function pollImport(clientUrl, asyncOpId, importJobId, btn) {
+            // Poll asyncoperations for terminal state and importjobs for % progress.
+            // statecode: 0=Ready, 1=Suspended, 2=Locked, 3=Completed
+            // statuscode: 30=Succeeded, 31=Failed, 32=Canceled
+            var started = Date.now();
+            var TIMEOUT_MS = 30 * 60 * 1000; // 30 min hard cap
+            var hdrs = { "Accept": "application/json", "OData-Version": "4.0", "OData-MaxVersion": "4.0" };
+            return new Promise(function (resolve, reject) {
+                function tick() {
+                    if (Date.now() - started > TIMEOUT_MS) {
+                        reject(new Error("Import is taking longer than 30 minutes; check Solutions > History in Power Apps."));
+                        return;
+                    }
+                    fetch(clientUrl + "/api/data/v9.2/asyncoperations(" + asyncOpId + ")?$select=statecode,statuscode,message,friendlymessage",
+                        { method: "GET", credentials: "include", headers: hdrs })
+                        .then(function (r) {
+                            if (!r.ok) throw new Error("Could not read async operation status (HTTP " + r.status + ")");
+                            return r.json();
+                        })
+                        .then(function (op) {
+                            var state = op.statecode; // numeric
+                            var status = op.statuscode;
+                            if (state === 3) {
+                                if (status === 30) { resolve(); return; }
+                                var detail = op.friendlymessage || op.message || ("statuscode=" + status);
+                                reject(new Error("Import did not succeed: " + detail));
+                                return;
+                            }
+                            // Not yet complete - try to read importjobs progress (best-effort).
+                            fetch(clientUrl + "/api/data/v9.2/importjobs(" + importJobId + ")?$select=progress",
+                                { method: "GET", credentials: "include", headers: hdrs })
+                                .then(function (r) { return r.ok ? r.json() : null; })
+                                .catch(function () { return null; })
+                                .then(function (job) {
+                                    var pct = job && typeof job.progress === "number" ? Math.floor(job.progress) : null;
+                                    var elapsed = Math.floor((Date.now() - started) / 1000);
+                                    btn.textContent = pct !== null ? ("Importing... " + pct + "%") : ("Importing... " + elapsed + "s");
+                                    setTimeout(tick, 4000);
+                                });
+                        })
+                        .catch(function (e) { reject(e); });
+                }
+                tick();
+            });
         }
 
         function blobToBase64(blob) {
