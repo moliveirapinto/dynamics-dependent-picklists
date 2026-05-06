@@ -28,6 +28,7 @@ This solution lets administrators set up **dependent dropdowns** on any Dynamics
 - **Better data quality** — invalid combinations simply aren't available.
 - **Color cues** — the same color you set in your option set shows up on the form, both in the open dropdown and on the selected value.
 - **No code, no plugins** — everything is configured through a simple matrix screen.
+
 ![screenshot03](screenshot03.png)
 
 ---
