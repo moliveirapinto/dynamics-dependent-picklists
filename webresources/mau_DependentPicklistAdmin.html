@@ -148,7 +148,7 @@
 
     /* App version badge (top-right of page) */
     .app-version {
-        position: fixed; top: 12px; right: 16px; z-index: 50;
+        position: absolute; top: 12px; right: 16px; z-index: 50;
         font-size: 11px; color: var(--muted);
         background: white; border: 1px solid var(--border);
         border-radius: 10px; padding: 4px 10px;
@@ -181,7 +181,7 @@
 </head>
 <body>
 <div class="app-version" id="appVersion">
-    <span id="appVersionText">v1.0.2.0</span>
+    <span id="appVersionText">v1.1.0.0</span>
     <span class="sep"></span>
     <a href="https://github.com/moliveirapinto/dynamics-dependent-picklists" target="_blank" rel="noopener" title="View source on GitHub">
         <svg class="gh-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -252,23 +252,52 @@
         </div>
     </div>
 
-    <div class="row">
-        <div class="field" style="flex: 2;">
-            <label>Forms to apply runtime script to</label>
-            <div style="display:flex; gap:8px; align-items:center; margin-bottom:4px;">
-                <button id="formsAllBtn" class="secondary" type="button" disabled style="padding:4px 10px; font-size:12px;">Select all</button>
-                <button id="formsNoneBtn" class="secondary" type="button" disabled style="padding:4px 10px; font-size:12px;">Clear</button>
-                <button id="applyFormsBtn" type="button" disabled style="padding:4px 10px; font-size:12px;">Apply script to selected forms</button>
-                <span id="formsStatus" style="font-size:12px; color:var(--muted);"></span>
-            </div>
-            <select id="formsSelect" multiple size="6" disabled style="font-family:inherit;">
+    <div class="row" id="scopeRow" style="background:#f3f9fd; border:1px solid #cfe4f5; border-radius:6px; padding:10px 12px; margin-bottom:12px;">
+        <div class="field" style="flex: 1; min-width: 220px;">
+            <label for="scopeSelect">Rule scope</label>
+            <select id="scopeSelect">
+                <option value="">Entity-wide (apply to all forms of this table)</option>
+                <option value="form">Form-specific (apply only to one form)</option>
+            </select>
+        </div>
+        <div class="field" id="scopeFormField" style="flex: 2; min-width: 280px; display:none;">
+            <label for="scopeFormSelect">Form</label>
+            <select id="scopeFormSelect" disabled>
                 <option value="">Pick a table first</option>
             </select>
-            <div style="font-size:11px; color:var(--muted); margin-top:4px;">
-                Hold Ctrl/Cmd to multi-select. Forms already registered are marked with &check;.
+            <div id="scopeFormStatus" style="font-size:11px; color:var(--muted); margin-top:4px;">
+                Form-specific rules <strong>override</strong> entity-wide rules for the same field pair on this form only.
             </div>
         </div>
     </div>
+
+    <div id="copyFromRow" style="display:none; margin:-4px 0 12px; padding:0 2px;">
+        <button type="button" id="copyFromBtn" class="secondary" style="font-size:12px;">Copy rules from another form</button>
+        <span style="margin-left:8px; font-size:12px; color:#666; font-style:italic;">Pre-fill this matrix with rules already saved on another form (or the entity-wide set), so you can tweak them instead of starting from scratch.</span>
+        <div id="copyFromPanel" style="display:none; margin-top:8px; padding:10px 12px; background:#fafafa; border:1px solid #e1e1e1; border-radius:6px;">
+            <div style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;">
+                <div class="field" style="flex: 2; min-width: 260px; margin:0;">
+                    <label for="copyFromSelect">Source (form or entity-wide)</label>
+                    <select id="copyFromSelect" disabled>
+                        <option value="">-- choose source --</option>
+                    </select>
+                </div>
+                <button type="button" id="copyApplyBtn" class="success" style="font-size:12px;" disabled>Load into matrix</button>
+                <button type="button" id="copyCancelBtn" class="secondary" style="font-size:12px;">Cancel</button>
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-top:6px;">
+                Loads the source's rules into the matrix. Click <strong>Save rules</strong> afterwards to apply them to the target form.
+            </div>
+        </div>
+    </div>
+
+    <details id="formsSummaryPanel" style="margin-bottom:12px; border:1px solid #e1e1e1; border-radius:6px; padding:6px 12px; background:#fafafa; display:none;">
+        <summary style="font-weight:600; cursor:pointer; padding:4px 0;">Where is the runtime script installed?</summary>
+        <div style="font-size:12px; color:var(--muted); margin:6px 0 8px;">
+            The script is installed automatically the first time you save rules; rules only fire on forms marked installed below.
+        </div>
+        <div id="formsSummaryBody"></div>
+    </details>
 
     <div class="toolbar">
         <button id="clearBtn" class="secondary" disabled>Clear all</button>
@@ -332,12 +361,21 @@
     var saveBtn = $("saveBtn");
     var clearBtn = $("clearBtn");
 
-    // Forms registration UI
-    var formsSel = $("formsSelect");
-    var formsAllBtn = $("formsAllBtn");
-    var formsNoneBtn = $("formsNoneBtn");
-    var applyFormsBtn = $("applyFormsBtn");
-    var formsStatusEl = $("formsStatus");
+    // Forms summary (read-only) UI
+    var formsSummaryPanel = $("formsSummaryPanel");
+    var formsSummaryBody = $("formsSummaryBody");
+    // Rule-scope UI
+    var scopeSel = $("scopeSelect");
+    var scopeFormField = $("scopeFormField");
+    var scopeFormSel = $("scopeFormSelect");
+    var scopeFormStatusEl = $("scopeFormStatus");
+    // Copy-from UI
+    var copyFromField = $("copyFromRow");
+    var copyFromBtn = $("copyFromBtn");
+    var copyFromPanel = $("copyFromPanel");
+    var copyFromSel = $("copyFromSelect");
+    var copyApplyBtn = $("copyApplyBtn");
+    var copyCancelBtn = $("copyCancelBtn");
     // Library used when injecting into new forms (current canonical version).
     var SCRIPT_LIBRARY_NAME = "mau_DependentPicklistRuntimeV2.js";
     var SCRIPT_HANDLER_FN = "MauDependentPicklists.onFormLoad";
@@ -364,7 +402,10 @@
         dependentOptions: [],
         existingRules: [],      // server rows
         // map<controllingValue, Set<dependentValue>>
-        selection: {}
+        selection: {},
+        // Rule scope: '' = entity-wide (mau_formid is null);
+        // a GUID = form-specific (mau_formid equals this).
+        ruleScopeFormId: ''
     };
 
     function setStatus(msg, kind) {
@@ -476,7 +517,28 @@
     function loadRules() {
         var ent = state.entityLogicalName, c = state.controllingField, d = state.dependentField;
         if (!ent || !c || !d) return Promise.resolve([]);
-        var qs = "/" + TABLE + "s?$filter=mau_entitylogicalname eq '" + ent + "' and mau_controllingfieldlogicalname eq '" + c + "' and mau_dependentfieldlogicalname eq '" + d + "'";
+        // Scope filter: entity-wide means mau_formid is null;
+        // form-specific means mau_formid equals the chosen formid.
+        var scopeFilter = state.ruleScopeFormId
+            ? "mau_formid eq '" + state.ruleScopeFormId + "'"
+            : "mau_formid eq null";
+        var qs = "/" + TABLE + "s?$filter=mau_entitylogicalname eq '" + ent +
+                 "' and mau_controllingfieldlogicalname eq '" + c +
+                 "' and mau_dependentfieldlogicalname eq '" + d +
+                 "' and " + scopeFilter;
+        return api(qs).then(function (res) { return res.value || []; });
+    }
+
+    // Fetch the entity-wide rules for the current pair regardless of the
+    // current scope. Used to seed the matrix as a baseline when an admin
+    // switches into Form-specific scope and there are no overrides yet.
+    function loadEntityWideRules() {
+        var ent = state.entityLogicalName, c = state.controllingField, d = state.dependentField;
+        if (!ent || !c || !d) return Promise.resolve([]);
+        var qs = "/" + TABLE + "s?$filter=mau_entitylogicalname eq '" + ent +
+                 "' and mau_controllingfieldlogicalname eq '" + c +
+                 "' and mau_dependentfieldlogicalname eq '" + d +
+                 "' and mau_formid eq null";
         return api(qs).then(function (res) { return res.value || []; });
     }
 
@@ -561,18 +623,21 @@
         // Empty selection (no ticks for that row) => allowed=[] => runtime blocks all.
         // To express "no restriction", admin must use the 'All' row button.
         var rows = [];
+        var scopeSuffix = state.ruleScopeFormId ? ("@form=" + state.ruleScopeFormId) : "";
         state.controllingOptions.forEach(function (c) {
             var sel = state.selection[c.value] || {};
             var allowed = Object.keys(sel).map(Number).sort(function (a, b) { return a - b; });
-            rows.push({
-                "mau_name": state.entityLogicalName + "|" + state.controllingField + "=" + c.value + "->" + state.dependentField,
+            var row = {
+                "mau_name": state.entityLogicalName + "|" + state.controllingField + "=" + c.value + "->" + state.dependentField + scopeSuffix,
                 "mau_entitylogicalname": state.entityLogicalName,
                 "mau_controllingfieldlogicalname": state.controllingField,
                 "mau_dependentfieldlogicalname": state.dependentField,
                 "mau_controllingoptionvalue": c.value,
                 "mau_alloweddependentoptionvalues": JSON.stringify(allowed),
-                "mau_isactive": true
-            });
+                "mau_isactive": true,
+                "mau_formid": state.ruleScopeFormId || null
+            };
+            rows.push(row);
         });
         return rows;
     }
@@ -637,15 +702,58 @@
         if (!ops.length) { setStatus("Nothing to save.", "success"); saveBtn.disabled = false; return; }
 
         Promise.all(ops).then(function () {
-            setStatus("Saved " + ops.length + " change(s).", "success");
+            setStatus("Saved " + ops.length + " change(s). Checking script registration…");
             return loadRules().then(function (rows) {
                 state.existingRules = rows;
-                saveBtn.disabled = false;
+                return autoInstallAfterSave().then(function (installMsg) {
+                    var base = "Saved " + ops.length + " change(s).";
+                    setStatus(base + (installMsg ? " " + installMsg : ""), "success");
+                    saveBtn.disabled = false;
+                });
             });
         }).catch(function (err) {
             console.error(err);
             setStatus("Save failed: " + err.message, "error");
             saveBtn.disabled = false;
+        });
+    }
+
+    // After a successful save, make sure the runtime script is registered on
+    // the form(s) where these rules will actually fire. This removes the #1
+    // footgun (saving rules but no form has the script). Behavior:
+    //   - Form-specific scope: silently install on that one form.
+    //   - Entity-wide scope: if NO form of this table has the script, prompt
+    //     the admin to install on all main forms (or just the most common one).
+    function autoInstallAfterSave() {
+        if (!_formsCache || !_formsCache.length) return Promise.resolve("");
+        if (state.ruleScopeFormId) {
+            var meta = _formsCache.find(function (f) { return f.formid === state.ruleScopeFormId; });
+            if (!meta) return Promise.resolve("");
+            if (meta.hasScript) return Promise.resolve("Script already on this form.");
+            return ensureScriptOnForms([state.ruleScopeFormId]).then(function (res) {
+                return loadForms(state.entityLogicalName).then(function () {
+                    if (res.failures.length) return "Saved, but script install failed on " + res.failures.length + " form(s) — see console.";
+                    if (res.changed.length) return "Script installed on '" + meta.name + "'.";
+                    return "";
+                });
+            });
+        }
+        // Entity-wide save: prompt only if no form has the script yet.
+        var registered = _formsCache.filter(function (f) { return f.hasScript; });
+        if (registered.length) return Promise.resolve("");
+        var formCount = _formsCache.length;
+        var go = confirm("Your rules are saved, but the runtime script isn't installed on any form of '" +
+            state.entityLogicalName + "' yet — so the rules won't fire anywhere.\n\n" +
+            "Install the script on all " + formCount + " main form(s) now?");
+        if (!go) {
+            return Promise.resolve("Skipped script install — rules are saved but won't fire until the script is installed on at least one form.");
+        }
+        var allIds = _formsCache.map(function (f) { return f.formid; });
+        return ensureScriptOnForms(allIds).then(function (res) {
+            return loadForms(state.entityLogicalName).then(function () {
+                if (res.failures.length) return "Installed on " + res.changed.length + " form(s); " + res.failures.length + " failed (see console).";
+                return "Script installed on " + (res.changed.length + res.alreadyOk) + " form(s).";
+            });
         });
     }
 
@@ -662,10 +770,8 @@
     var _formsCache = []; // [{formid,name,formxml,hasScript}]
 
     function loadForms(entityLogicalName) {
-        formsStatusEl.textContent = "Loading forms…";
-        formsSel.disabled = true;
-        formsAllBtn.disabled = true; formsNoneBtn.disabled = true; applyFormsBtn.disabled = true;
-        formsSel.innerHTML = '<option value="">Loading…</option>';
+        if (formsSummaryBody) formsSummaryBody.innerHTML = '<div style="font-size:12px; color:var(--muted);">Loading forms…</div>';
+        if (formsSummaryPanel) formsSummaryPanel.style.display = '';
         // type 2 = Main form; formactivationstate 1 = Active
         var qs = "/systemforms?$select=formid,name,formxml,type,formactivationstate&$filter=objecttypecode eq '" + entityLogicalName + "' and type eq 2 and formactivationstate eq 1";
         return api(qs).then(function (res) {
@@ -675,17 +781,54 @@
                 return { formid: f.formid, name: f.name, formxml: xml, hasScript: hasScript };
             }).sort(function (a, b) { return a.name.localeCompare(b.name); });
             _formsCache = rows;
-            formsSel.innerHTML = rows.map(function (r) {
-                var mark = r.hasScript ? "\u2713 " : "";
-                return '<option value="' + r.formid + '"' + (r.hasScript ? ' selected' : '') + '>' + mark + escapeHtml(r.name) + '</option>';
-            }).join("");
-            formsSel.disabled = false;
-            formsAllBtn.disabled = false; formsNoneBtn.disabled = false; applyFormsBtn.disabled = false;
-            var registered = rows.filter(function (r) { return r.hasScript; }).length;
-            formsStatusEl.textContent = rows.length + " active main form(s); " + registered + " already registered.";
+            // Populate the rule-scope form picker with the same forms.
+            scopeFormSel.innerHTML = '<option value="">-- Pick a form --</option>' +
+                rows.map(function (r) {
+                    return '<option value="' + r.formid + '">' + escapeHtml(r.name) + '</option>';
+                }).join("");
+            scopeFormSel.disabled = (scopeSel.value !== 'form');
+            // If a form was previously chosen for scope and is still in the list, keep it.
+            if (state.ruleScopeFormId) {
+                var stillExists = rows.some(function (r) { return r.formid === state.ruleScopeFormId; });
+                if (stillExists) scopeFormSel.value = state.ruleScopeFormId;
+                else { state.ruleScopeFormId = ''; scopeSel.value = ''; scopeFormField.style.display = 'none'; }
+            }
+            renderFormsSummary(rows);
+            refreshScopeFormStatus();
+            refreshCopyFromSources();
         }).catch(function (e) {
-            formsStatusEl.textContent = "Error: " + e.message;
+            renderFormsSummary([], e.message);
         });
+    }
+
+    // Render the read-only summary table of forms + install status.
+    function renderFormsSummary(rows, errorMsg) {
+        if (!formsSummaryBody || !formsSummaryPanel) return;
+        if (errorMsg) {
+            formsSummaryBody.innerHTML = '<div style="color:#a4262c;">Error loading forms: ' + escapeHtml(errorMsg) + '</div>';
+            formsSummaryPanel.style.display = '';
+            return;
+        }
+        if (!rows || !rows.length) { formsSummaryPanel.style.display = 'none'; return; }
+        formsSummaryPanel.style.display = '';
+        var registered = rows.filter(function (r) { return r.hasScript; }).length;
+        var html = '<div style="font-size:12px; color:var(--muted); margin-bottom:6px;">' +
+            registered + ' of ' + rows.length + ' main form(s) have the runtime script installed.' +
+            '</div>' +
+            '<table style="width:100%; border-collapse:collapse; font-size:13px;">' +
+            '<thead><tr>' +
+            '<th style="text-align:left; padding:4px 8px; border-bottom:1px solid #ddd;">Form</th>' +
+            '<th style="text-align:left; padding:4px 8px; border-bottom:1px solid #ddd; width:140px;">Runtime script</th>' +
+            '</tr></thead><tbody>' +
+            rows.map(function (r) {
+                var status = r.hasScript
+                    ? '<span style="color:#107c10;">\u2713 Installed</span>'
+                    : '<span style="color:#a4262c;">\u2014 Not installed</span>';
+                return '<tr><td style="padding:4px 8px; border-bottom:1px solid #f0f0f0;">' + escapeHtml(r.name) +
+                    '</td><td style="padding:4px 8px; border-bottom:1px solid #f0f0f0;">' + status + '</td></tr>';
+            }).join('') +
+            '</tbody></table>';
+        formsSummaryBody.innerHTML = html;
     }
 
     function injectScriptIntoFormXml(formXml) {
@@ -785,21 +928,19 @@
         return api("/PublishXml", { method: "POST", body: { ParameterXml: xml } });
     }
 
-    function applyToSelectedForms() {
-        var selected = Array.from(formsSel.selectedOptions).map(function (o) { return o.value; }).filter(Boolean);
-        if (!selected.length) { formsStatusEl.textContent = "Pick at least one form."; return; }
-        if (!confirm("Register the runtime script on " + selected.length + " form(s)?\n\nThe form XML will be patched and the forms published. Existing form customizations are preserved.")) return;
-
-        applyFormsBtn.disabled = true;
-        formsStatusEl.textContent = "Patching " + selected.length + " form(s)…";
+    // Patch + publish a list of forms so the runtime script is registered.
+    // Silent (no confirm) — used both by the manual button and by saveAll's
+    // auto-install. Resolves to a summary { changed, alreadyOk, failures }.
+    function ensureScriptOnForms(formIds) {
+        formIds = (formIds || []).filter(Boolean);
+        if (!formIds.length) return Promise.resolve({ changed: [], alreadyOk: 0, failures: [] });
         var changedFormIds = [];
         var alreadyOk = 0;
         var failures = [];
-
-        var work = selected.reduce(function (p, formid) {
+        var work = formIds.reduce(function (p, formid) {
             return p.then(function () {
                 var meta = _formsCache.find(function (f) { return f.formid === formid; });
-                if (!meta) return;
+                if (!meta) { failures.push({ formid: formid, name: '(unknown)', error: 'Form not in cache' }); return; }
                 var result;
                 try { result = injectScriptIntoFormXml(meta.formxml); }
                 catch (e) { failures.push({ formid: formid, name: meta.name, error: e.message }); return; }
@@ -809,28 +950,14 @@
                     .catch(function (e) { failures.push({ formid: formid, name: meta.name, error: e.message }); });
             });
         }, Promise.resolve());
-
-        work.then(function () {
-            if (changedFormIds.length) {
-                formsStatusEl.textContent = "Publishing " + changedFormIds.length + " form(s)…";
-                return publishForms(changedFormIds);
-            }
+        return work.then(function () {
+            if (changedFormIds.length) return publishForms(changedFormIds);
         }).then(function () {
-            var msg = "Done. Updated " + changedFormIds.length + ", already registered " + alreadyOk;
-            if (failures.length) msg += ", " + failures.length + " failed";
-            formsStatusEl.textContent = msg;
-            if (failures.length) {
-                console.warn("Form registration failures:", failures);
-                alert("Some forms failed:\n" + failures.map(function (f) { return f.name + ": " + f.error; }).join("\n"));
-            }
-            // Refresh the forms panel to update the checkmarks
-            return loadForms(state.entityLogicalName);
-        }).catch(function (e) {
-            formsStatusEl.textContent = "Error: " + e.message;
-        }).then(function () {
-            applyFormsBtn.disabled = false;
+            return { changed: changedFormIds, alreadyOk: alreadyOk, failures: failures };
         });
     }
+
+    function applyToSelectedForms() { /* removed: replaced by inline Install-now link in scope row + auto-install on save */ }
 
     // ---------------- Wire-up ----------------
 
@@ -844,10 +971,19 @@
         ctrlSearch.disabled = true; depSearch.disabled = true;
         matrixEl.innerHTML = "";
         saveBtn.disabled = true; clearBtn.disabled = true;
-        // Reset forms panel
-        formsSel.innerHTML = '<option value="">Pick a table first</option>';
-        formsSel.disabled = true; formsAllBtn.disabled = true; formsNoneBtn.disabled = true; applyFormsBtn.disabled = true;
-        formsStatusEl.textContent = "";
+        // Reset forms summary panel
+        if (formsSummaryBody) formsSummaryBody.innerHTML = '';
+        if (formsSummaryPanel) formsSummaryPanel.style.display = 'none';
+        // Reset rule scope back to entity-wide whenever the entity changes.
+        scopeSel.value = '';
+        scopeFormField.style.display = 'none';
+        scopeFormSel.innerHTML = '<option value="">Pick a table first</option>';
+        scopeFormSel.disabled = true;
+        state.ruleScopeFormId = '';
+        if (copyFromField) copyFromField.style.display = 'none';
+        if (copyFromPanel) copyFromPanel.style.display = 'none';
+        if (copyFromSel) { copyFromSel.innerHTML = '<option value="">-- choose source --</option>'; copyFromSel.disabled = true; }
+        if (copyApplyBtn) copyApplyBtn.disabled = true;
         if (!state.entityLogicalName) return;
         loadChoiceFields(state.entityLogicalName).catch(function (e) { setStatus(e.message, "error"); });
         loadForms(state.entityLogicalName);
@@ -859,6 +995,11 @@
 
     function maybeAutoLoad() {
         if (state.entityLogicalName && ctrlSel.value && depSel.value && ctrlSel.value !== depSel.value) {
+            // If user chose "Form-specific" scope but hasn't picked a form yet, wait.
+            if (scopeSel.value === 'form' && !state.ruleScopeFormId) {
+                setStatus('Pick a form to load form-specific rules.');
+                return;
+            }
             loadMatrixNow();
         }
     }
@@ -872,31 +1013,197 @@
         state.selection = {};
         setStatus("Loading existing rules…");
         loadRules().then(function (rows) {
+            // Helper: tick boxes from a set of rule rows
+            function seedSelection(rs) {
+                rs.forEach(function (r) {
+                    var cv = Number(r.mau_controllingoptionvalue);
+                    var allowed = [];
+                    try { allowed = JSON.parse(r.mau_alloweddependentoptionvalues || "[]").map(Number); } catch (e) { }
+                    state.selection[cv] = {};
+                    allowed.forEach(function (dv) { state.selection[cv][dv] = true; });
+                });
+            }
+
+            // Form-specific scope, no overrides yet → preload the entity-wide
+            // rules as a starting baseline so the admin can see what's
+            // currently effective on this form. existingRules stays empty so
+            // saving creates fresh form-specific records (does NOT touch the
+            // entity-wide rows).
+            if (state.ruleScopeFormId && rows.length === 0) {
+                return loadEntityWideRules().then(function (ewRows) {
+                    state.existingRules = [];
+                    seedSelection(ewRows);
+                    renderMatrix();
+                    if (ewRows.length) {
+                        setStatus("No form-specific overrides yet. Showing the " + ewRows.length +
+                            " entity-wide rule(s) as a baseline — edit and Save to create form-specific overrides for this form.",
+                            "success");
+                    } else {
+                        setStatus("No rules yet for this field pair.", "success");
+                    }
+                });
+            }
+
             state.existingRules = rows;
+            seedSelection(rows);
+            renderMatrix();
+            var label = state.ruleScopeFormId ? "form-specific override" : "entity-wide rule";
+            setStatus("Loaded " + rows.length + " " + label + " row(s).", "success");
+        }).catch(function (e) { setStatus(e.message, "error"); });
+    }
+    ctrlSel.addEventListener("change", function () { state.controllingField = ctrlSel.value || null; refreshCopyFromSources(); maybeAutoLoad(); });
+    depSel.addEventListener("change", function () { state.dependentField = depSel.value || null; refreshCopyFromSources(); maybeAutoLoad(); });
+
+    // Rule-scope wiring: switching scope (or scope's form) reloads the matrix
+    // for the chosen scope so admins see exactly which rules apply where.
+    scopeSel.addEventListener("change", function () {
+        if (scopeSel.value === 'form') {
+            scopeFormField.style.display = '';
+            // Enable the form picker if forms have been loaded.
+            scopeFormSel.disabled = !(_formsCache && _formsCache.length);
+            // If a form is already chosen, switch to it; otherwise wait.
+            state.ruleScopeFormId = scopeFormSel.value || '';
+        } else {
+            scopeFormField.style.display = 'none';
+            state.ruleScopeFormId = '';
+        }
+        refreshScopeFormStatus();
+        refreshCopyFromSources();
+        maybeAutoLoad();
+    });
+    scopeFormSel.addEventListener("change", function () {
+        state.ruleScopeFormId = scopeFormSel.value || '';
+        refreshScopeFormStatus();
+        refreshCopyFromSources();
+        maybeAutoLoad();
+    });
+
+    // ---- Copy rules from another form / entity-wide ----
+    // Builds the "Copy rules from" dropdown. Shown only in Form-specific scope
+    // when a target form is chosen and a controlling+dependent field pair is
+    // selected. The list contains "Entity-wide baseline" plus every other form
+    // for the current entity (excluding the currently-selected target form).
+    function refreshCopyFromSources() {
+        if (!copyFromField || !copyFromSel) return;
+        var inFormScope = (scopeSel.value === 'form');
+        var targetFormId = state.ruleScopeFormId || '';
+        var pairReady = !!(state.controllingField && state.dependentField);
+        var canUse = inFormScope && pairReady && !!targetFormId && _formsCache && _formsCache.length;
+        copyFromField.style.display = canUse ? '' : 'none';
+        if (!canUse) {
+            // Collapse the panel back to just the button next time it appears.
+            if (copyFromPanel) copyFromPanel.style.display = 'none';
+            return;
+        }
+        var html = ['<option value="">-- choose source --</option>'];
+        html.push('<option value="__entity__">Entity-wide baseline</option>');
+        _formsCache.forEach(function (f) {
+            if (f.formid === targetFormId) return;
+            html.push('<option value="' + f.formid + '">' + escapeHtml(f.name) + '</option>');
+        });
+        copyFromSel.innerHTML = html.join('');
+        copyFromSel.disabled = false;
+        copyFromSel.value = '';
+        if (copyApplyBtn) copyApplyBtn.disabled = true;
+    }
+
+    if (copyFromBtn) copyFromBtn.addEventListener('click', function () {
+        if (!copyFromPanel) return;
+        var open = copyFromPanel.style.display !== 'none';
+        copyFromPanel.style.display = open ? 'none' : '';
+    });
+    if (copyCancelBtn) copyCancelBtn.addEventListener('click', function () {
+        if (copyFromPanel) copyFromPanel.style.display = 'none';
+        if (copyFromSel) copyFromSel.value = '';
+        if (copyApplyBtn) copyApplyBtn.disabled = true;
+    });
+    if (copyFromSel) copyFromSel.addEventListener('change', function () {
+        if (copyApplyBtn) copyApplyBtn.disabled = !copyFromSel.value;
+    });
+    if (copyApplyBtn) copyApplyBtn.addEventListener('click', function () {
+        var src = copyFromSel.value;
+        if (!src) return;
+        if (!state.entityLogicalName || !state.controllingField || !state.dependentField) {
+            setStatus('Pick a table and field pair first.', 'error');
+            return;
+        }
+        var sourceLabel;
+        var scopeFilter;
+        if (src === '__entity__') {
+            sourceLabel = 'Entity-wide baseline';
+            scopeFilter = "mau_formid eq null";
+        } else {
+            var meta = (_formsCache || []).find(function (f) { return f.formid === src; });
+            sourceLabel = meta ? meta.name : src;
+            scopeFilter = "mau_formid eq '" + src + "'";
+        }
+        var qs = "/" + TABLE + "s?$filter=mau_entitylogicalname eq '" + state.entityLogicalName +
+                 "' and mau_controllingfieldlogicalname eq '" + state.controllingField +
+                 "' and mau_dependentfieldlogicalname eq '" + state.dependentField +
+                 "' and " + scopeFilter;
+        copyApplyBtn.disabled = true;
+        setStatus('Copying rules from \u201C' + sourceLabel + '\u201D\u2026');
+        api(qs).then(function (res) {
+            var rows = res.value || [];
+            state.selection = {};
             rows.forEach(function (r) {
                 var cv = Number(r.mau_controllingoptionvalue);
                 var allowed = [];
-                try { allowed = JSON.parse(r.mau_alloweddependentoptionvalues || "[]").map(Number); } catch (e) {}
+                try { allowed = JSON.parse(r.mau_alloweddependentoptionvalues || '[]').map(Number); } catch (e) { }
                 state.selection[cv] = {};
                 allowed.forEach(function (dv) { state.selection[cv][dv] = true; });
             });
             renderMatrix();
-            setStatus("Loaded " + rows.length + " existing rule row(s).", "success");
-        }).catch(function (e) { setStatus(e.message, "error"); });
+            var targetMeta = (_formsCache || []).find(function (f) { return f.formid === state.ruleScopeFormId; });
+            var targetName = targetMeta ? targetMeta.name : 'this form';
+            if (rows.length === 0) {
+                setStatus('Source \u201C' + sourceLabel + '\u201D has no rules for this field pair. Matrix cleared. Click Save rules to apply (this would block all dependent values).', 'success');
+            } else {
+                setStatus('Copied ' + rows.length + ' rule row(s) from \u201C' + sourceLabel + '\u201D. Click Save rules to apply to \u201C' + targetName + '\u201D.', 'success');
+            }
+            if (copyFromPanel) copyFromPanel.style.display = 'none';
+            if (copyFromSel) copyFromSel.value = '';
+        }).catch(function (e) {
+            setStatus(e.message, 'error');
+            if (copyApplyBtn) copyApplyBtn.disabled = false;
+        });
+    });
+
+    // Show whether the runtime script is currently registered on the form
+    // chosen in the Rule-scope picker. Includes a one-click Install link if
+    // it isn't, so the admin doesn't need to open the Advanced panel.
+    function refreshScopeFormStatus() {
+        if (!scopeFormStatusEl) return;
+        var defaultMsg = 'Form-specific rules <strong>override</strong> entity-wide rules for the same field pair on this form only.';
+        if (scopeSel.value !== 'form' || !state.ruleScopeFormId) {
+            scopeFormStatusEl.innerHTML = defaultMsg;
+            scopeFormStatusEl.style.color = 'var(--muted)';
+            return;
+        }
+        var meta = (_formsCache || []).find(function (f) { return f.formid === state.ruleScopeFormId; });
+        if (!meta) { scopeFormStatusEl.innerHTML = defaultMsg; return; }
+        if (meta.hasScript) {
+            scopeFormStatusEl.innerHTML = '\u2713 Runtime script is installed on this form. ' + defaultMsg;
+            scopeFormStatusEl.style.color = '#107c10';
+        } else {
+            scopeFormStatusEl.innerHTML = '\u26A0 Runtime script is <strong>not</strong> installed on this form yet — rules saved here won\'t fire until it is. ' +
+                '<a href="#" id="installScriptHere">Install now</a>';
+            scopeFormStatusEl.style.color = '#a4262c';
+            var lnk = document.getElementById('installScriptHere');
+            if (lnk) lnk.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                lnk.textContent = 'Installing…';
+                ensureScriptOnForms([state.ruleScopeFormId]).then(function () {
+                    return loadForms(state.entityLogicalName);
+                }).then(refreshScopeFormStatus).catch(function (e) {
+                    scopeFormStatusEl.textContent = 'Install failed: ' + e.message;
+                });
+            });
+        }
     }
-    ctrlSel.addEventListener("change", function () { state.controllingField = ctrlSel.value || null; maybeAutoLoad(); });
-    depSel.addEventListener("change", function () { state.dependentField = depSel.value || null; maybeAutoLoad(); });
 
     saveBtn.addEventListener("click", saveAll);
     clearBtn.addEventListener("click", clearAll);
-
-    formsAllBtn.addEventListener("click", function () {
-        Array.from(formsSel.options).forEach(function (o) { if (o.value) o.selected = true; });
-    });
-    formsNoneBtn.addEventListener("click", function () {
-        Array.from(formsSel.options).forEach(function (o) { o.selected = false; });
-    });
-    applyFormsBtn.addEventListener("click", applyToSelectedForms);
 
     // Boot
     loadEntities().catch(function (e) { setStatus(e.message, "error"); });

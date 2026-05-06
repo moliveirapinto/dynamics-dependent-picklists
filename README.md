@@ -81,6 +81,36 @@ That's the whole loop. Come back any time to add, change, or remove rules.
 
 ---
 
+## 🎛️ Rule scope: entity-wide vs form-specific (v1.1+)
+
+Most of the time you want one set of rules to apply on **every form of a table** — that's called **Entity-wide** (the default). But sometimes the same field pair needs **different rules on a different form** (for example: the standard Case form should restrict *Type*, but the swarming Case form should leave it fully open).
+
+At the top of the matrix screen you'll see a **Rule scope** picker:
+
+- **Entity-wide (apply to all forms of this table)** — the rules you save here apply on every form where the runtime script is registered. This is what you want 95% of the time.
+- **Form-specific (apply only to one form)** — pick a form from the **Form** dropdown that appears. Rules saved here apply **only** on that form.
+
+**How precedence works:** if a form-specific rule exists for a field pair on a given form, it **fully replaces** the entity-wide rules for that same field pair on that form only. Other field pairs on that form, and all rules on other forms, are unaffected.
+
+> Tip: switch the scope back and forth at the top — the matrix reloads each time so you always see exactly the rules that will apply at that scope.
+
+---
+
+## 📋 Copy rules from another form (v1.1+)
+
+When you're setting up a **form-specific** rule, you usually don't want to start from a blank matrix — you want the entity-wide rules (or rules from a sibling form) as your starting point, and then tweak just what's different.
+
+That's what the **Copy rules from another form** button does. You'll find it right above the matrix whenever you've picked a form-specific scope:
+
+1. Click **Copy rules from another form**.
+2. Pick the **source** — either *Entity-wide* or any other form that already has rules for this same field pair.
+3. Click **Load into matrix**. The matrix is pre-filled with the source's allowed combinations.
+4. Adjust the ticks as needed and click **Save rules**.
+
+Nothing is saved until you hit **Save rules**, so you can experiment freely.
+
+---
+
 ## ❓ FAQ
 
 **Will this work for my custom table / custom choice field?**

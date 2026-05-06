@@ -31,7 +31,7 @@ var MauDependentPicklists = (function () {
         if (_cache[entityLogicalName]) {
             return Promise.resolve(_cache[entityLogicalName]);
         }
-        var qs = "?$select=mau_controllingfieldlogicalname,mau_dependentfieldlogicalname,mau_controllingoptionvalue,mau_alloweddependentoptionvalues" +
+        var qs = "?$select=mau_controllingfieldlogicalname,mau_dependentfieldlogicalname,mau_controllingoptionvalue,mau_alloweddependentoptionvalues,mau_formid" +
             "&$filter=mau_entitylogicalname eq '" + entityLogicalName + "' and mau_isactive eq true";
         return Xrm.WebApi.online.retrieveMultipleRecords("mau_dependentpicklistrule", qs).then(function (res) {
             _cache[entityLogicalName] = res.entities || [];
@@ -40,6 +40,66 @@ var MauDependentPicklists = (function () {
             log("Rule fetch error", err);
             _cache[entityLogicalName] = [];
             return [];
+        });
+    }
+
+    function _normalizeFormId(s) {
+        return String(s || '').replace(/[{}]/g, '').toLowerCase();
+    }
+
+    function _getCurrentFormId(formContext) {
+        // Try multiple sources because formSelector is not always populated
+        // (e.g., when a single form is available, on some custom apps, or
+        // depending on UCI version). Order matters: most reliable first.
+        try {
+            if (formContext && formContext.ui && formContext.ui.formSelector
+                && typeof formContext.ui.formSelector.getCurrentItem === 'function') {
+                var item = formContext.ui.formSelector.getCurrentItem();
+                if (item && typeof item.getId === 'function') {
+                    var id = item.getId();
+                    if (id) { log("formId via formSelector:", id); return _normalizeFormId(id); }
+                }
+            }
+        } catch (e) { log("formSelector error", e); }
+        // Newer UCI: page context exposes the form id directly.
+        try {
+            if (window.Xrm && Xrm.Utility && typeof Xrm.Utility.getPageContext === 'function') {
+                var pc = Xrm.Utility.getPageContext();
+                if (pc && pc.input && pc.input.formId) {
+                    log("formId via getPageContext:", pc.input.formId);
+                    return _normalizeFormId(pc.input.formId);
+                }
+            }
+        } catch (e) { log("getPageContext error", e); }
+        // Last resort: parse the &formid= parameter from the page URL.
+        try {
+            var href = (window.parent && window.parent.location && window.parent.location.href) || window.location.href;
+            var m = /[?&#]formid=([^&]+)/i.exec(href || '');
+            if (m && m[1]) {
+                var decoded = decodeURIComponent(m[1]);
+                log("formId via URL:", decoded);
+                return _normalizeFormId(decoded);
+            }
+        } catch (e) { log("URL formId error", e); }
+        log("Could not determine current form id; falling back to entity-wide rules.");
+        return '';
+    }
+
+    // Given the full rules array for the entity and a (controlling, dependent)
+    // pair, return the rules to apply on this form. Form-specific rules
+    // (mau_formid === currentFormId) take precedence per pair: if any exist,
+    // entity-wide rules for that same pair are ignored on this form.
+    function _rulesForPair(allRules, controllingField, dependentField, currentFormId) {
+        var same = allRules.filter(function (r) {
+            return r.mau_controllingfieldlogicalname === controllingField
+                && r.mau_dependentfieldlogicalname === dependentField;
+        });
+        var formSpecific = same.filter(function (r) {
+            return r.mau_formid && _normalizeFormId(r.mau_formid) === currentFormId;
+        });
+        if (formSpecific.length) return formSpecific;
+        return same.filter(function (r) {
+            return !r.mau_formid; // entity-wide (mau_formid is null/empty)
         });
     }
 
@@ -159,6 +219,7 @@ var MauDependentPicklists = (function () {
         try {
             var formContext = executionContext.getFormContext();
             var entityLogicalName = formContext.data.entity.getEntityName();
+            var currentFormId = _getCurrentFormId(formContext);
             // Fire-and-forget: apply colors to all picklist fields on the form
             applyChoiceColors(formContext, entityLogicalName);
             fetchRules(entityLogicalName).then(function (rules) {
@@ -171,7 +232,18 @@ var MauDependentPicklists = (function () {
                 });
                 Object.keys(pairs).forEach(function (k) {
                     var p = pairs[k];
-                    bindPair(formContext, p.c, p.d, rules);
+                    // Per-pair: use form-specific rules if any exist for this
+                    // form; otherwise fall back to entity-wide rules. This lets
+                    // admins override one pair on a single form without
+                    // copying every rule.
+                    var effective = _rulesForPair(rules, p.c, p.d, currentFormId);
+                    if (!effective.length) {
+                        log("No effective rules for", p.c, "->", p.d, "(formId=" + currentFormId + ")");
+                        return;
+                    }
+                    log("Binding", p.c, "->", p.d, "with", effective.length, "rule(s)",
+                        effective[0].mau_formid ? "(form-specific)" : "(entity-wide)");
+                    bindPair(formContext, p.c, p.d, effective);
                 });
             });
         } catch (e) {
