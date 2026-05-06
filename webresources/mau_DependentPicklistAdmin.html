@@ -181,7 +181,7 @@
 </head>
 <body>
 <div class="app-version" id="appVersion">
-    <span id="appVersionText">v1.1.8.0</span>
+    <span id="appVersionText">v1.1.10.0</span>
     <span class="sep"></span>
     <a href="https://github.com/moliveirapinto/dynamics-dependent-picklists" target="_blank" rel="noopener" title="View source on GitHub">
         <svg class="gh-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -1219,6 +1219,30 @@
     // Boot
     loadEntities().catch(function (e) { setStatus(e.message, "error"); });
 
+    // ---- Sync the version badge with the actually-installed solution ----
+    // The hardcoded version in #appVersionText is whatever the HTML web
+    // resource was built with. After an in-app Update, the solution gets
+    // bumped but the admin HTML may not have been re-uploaded, so the badge
+    // would lie. Query the live solution version on boot so the badge
+    // always reflects what's actually installed in this environment.
+    (function syncInstalledVersion() {
+        try {
+            var clientUrl = (window.Xrm && Xrm.Utility && Xrm.Utility.getGlobalContext)
+                ? Xrm.Utility.getGlobalContext().getClientUrl() : "";
+            fetch(clientUrl + "/api/data/v9.2/solutions?$select=version&$filter=uniquename eq 'DependentPicklists'", {
+                method: "GET", credentials: "include",
+                headers: { "Accept": "application/json", "OData-Version": "4.0", "OData-MaxVersion": "4.0" }
+            }).then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) {
+                var v = j && j.value && j.value[0] && j.value[0].version;
+                if (v) {
+                    var el = document.getElementById("appVersionText");
+                    if (el) el.textContent = "v" + v;
+                }
+            }).catch(function () { /* silent */ });
+        } catch (e) { /* silent */ }
+    })();
+
     // ---- Update check against GitHub Releases ----
     // Compares current version (text in #appVersionText, e.g. "v1.0.0.6")
     // with the latest published release tag. If newer is available, shows a
@@ -1360,6 +1384,31 @@
                     });
                 })
                 .then(function () {
+                    // Verify the import actually bumped the installed version.
+                    // ImportSolutionAsync can succeed (statuscode=30) without
+                    // applying changes if the zip's solution.xml <Version> is not
+                    // strictly greater than what's installed. Don't lie to the user.
+                    return fetch(clientUrl + "/api/data/v9.2/solutions?$select=version&$filter=uniquename eq 'DependentPicklists'", {
+                        method: "GET", credentials: "include",
+                        headers: { "Accept": "application/json", "OData-Version": "4.0", "OData-MaxVersion": "4.0" }
+                    }).then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (j) {
+                        var newVer = j && j.value && j.value[0] && j.value[0].version;
+                        var expected = String(tag || "").replace(/^v/i, "");
+                        // Live-update the badge no matter what the import did.
+                        if (newVer) {
+                            var el = document.getElementById("appVersionText");
+                            if (el) el.textContent = "v" + newVer;
+                        }
+                        // Compare on first 3 segments (tag is x.y.z, version is x.y.z.b).
+                        function trip(v) { return String(v || "").replace(/^v/i, "").split(".").slice(0, 3).join("."); }
+                        if (newVer && expected && trip(newVer) !== trip(expected)) {
+                            throw new Error("Import reported success but installed version is still v" + newVer +
+                                " (expected " + tag + "). The package may have been a no-op. Try the manual import from the release page.");
+                        }
+                    });
+                })
+                .then(function () {
                     btn.textContent = "Updated \u2713";
                     btn.style.background = "#107c10";
                     btn.style.color = "white";
@@ -1410,11 +1459,15 @@
                                 return;
                             }
                             // Not yet complete - try to read importjobs progress (best-effort).
-                            fetch(clientUrl + "/api/data/v9.2/importjobs(" + importJobId + ")?$select=progress",
+                            // The importjobs row keyed by our client-supplied GUID may not
+                            // exist yet (or at all with ImportSolutionAsync), so query by
+                            // filter on the most recent job for this solution instead.
+                            fetch(clientUrl + "/api/data/v9.2/importjobs?$select=progress,createdon&$filter=solutionname eq 'DependentPicklists'&$orderby=createdon desc&$top=1",
                                 { method: "GET", credentials: "include", headers: hdrs })
                                 .then(function (r) { return r.ok ? r.json() : null; })
                                 .catch(function () { return null; })
-                                .then(function (job) {
+                                .then(function (j) {
+                                    var job = j && j.value && j.value[0];
                                     var pct = job && typeof job.progress === "number" ? Math.floor(job.progress) : null;
                                     var elapsed = Math.floor((Date.now() - started) / 1000);
                                     btn.textContent = pct !== null ? ("Importing... " + pct + "%") : ("Importing... " + elapsed + "s");
