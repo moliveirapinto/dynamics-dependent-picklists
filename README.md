@@ -2,7 +2,7 @@
 
 Make your forms smarter — and easier to use — without writing a line of code.
 
-This solution lets administrators set up **dependent dropdowns** on any Dynamics 365 form (for example: when the user picks **Origin = Phone**, only show **Type = Question** or **Problem**). It als[...]
+This solution lets administrators set up **dependent dropdowns** on any Dynamics 365 form (for example: when the user picks **Origin = Phone**, only show **Type = Question** or **Problem**). It also colors each option with the color you already defined in the option set — no extra work needed.
 
 > Works on any table — standard or custom — and on any Choice (option set) field.
 
@@ -48,7 +48,7 @@ That's it — the solution is in your environment.
 
 ![screenshot01](screenshot01.png)
 
-Most of your team won't go hunting for a web resource by URL. The cleanest way to expose the admin page is to add it as a navigation entry in the **Customer Service Admin Center** app, so it appea[...]
+Most of your team won't go hunting for a web resource by URL. The cleanest way to expose the admin page is to add it as a navigation entry in the **Customer Service Admin Center** app, so it appears in the left sidebar just like any other section.
 
 ### Step 1 — Open the Customer Service Admin Center for editing
 
@@ -101,14 +101,14 @@ That's the whole loop. Come back any time to add, change, or remove rules.
 
 ## 🎛️ Rule scope: entity-wide vs form-specific (v1.1+)
 
-Most of the time you want one set of rules to apply on **every form of a table** — that's called **Entity-wide** (the default). But sometimes the same field pair needs **different rules on a di[...]
+Most of the time you want one set of rules to apply on **every form of a table** — that's called **Entity-wide** (the default). But sometimes the same field pair needs **different rules on a different form** — that's **Form-specific**.
 
 At the top of the matrix screen you'll see a **Rule scope** picker:
 
 - **Entity-wide (apply to all forms of this table)** — the rules you save here apply on every form where the runtime script is registered. This is what you want 95% of the time.
 - **Form-specific (apply only to one form)** — pick a form from the **Form** dropdown that appears. Rules saved here apply **only** on that form.
 
-**How precedence works:** if a form-specific rule exists for a field pair on a given form, it **fully replaces** the entity-wide rules for that same field pair on that form only. Other field pair[...]
+**How precedence works:** if a form-specific rule exists for a field pair on a given form, it **fully replaces** the entity-wide rules for that same field pair on that form only. Other field pairs and other forms are not affected.
 
 > Tip: switch the scope back and forth at the top — the matrix reloads each time so you always see exactly the rules that will apply at that scope.
 
@@ -116,7 +116,7 @@ At the top of the matrix screen you'll see a **Rule scope** picker:
 
 ## 📋 Copy rules from another form (v1.1+)
 
-When you're setting up a **form-specific** rule, you usually don't want to start from a blank matrix — you want the entity-wide rules (or rules from a sibling form) as your starting point, and [...]
+When you're setting up a **form-specific** rule, you usually don't want to start from a blank matrix — you want the entity-wide rules (or rules from a sibling form) as your starting point, and then tweak a few ticks.
 
 That's what the **Copy rules from another form** button does. You'll find it right above the matrix whenever you've picked a form-specific scope:
 
@@ -135,24 +135,26 @@ Nothing is saved until you hit **Save rules**, so you can experiment freely.
 Yes. The solution doesn't care whether the table or field is standard (out-of-box) or custom — as long as both fields are Choice (option set) fields on the same form.
 
 **Where do the colors on the dropdown come from?**
-From the **color you set on each option** in Power Platform's choice editor (Solutions → your column → edit each option → Color). The runtime reads that color and paints the dropdown accord[...]
+From the **color you set on each option** in Power Platform's choice editor (Solutions → your column → edit each option → Color). The runtime reads that color and paints the dropdown accordingly. If no color is set, the option renders without a colored pill.
 
 **A user changed something on the form and the dropdown looks wrong.**
 Ask them to do a hard refresh (**Ctrl + F5**). Dynamics caches form scripts very aggressively.
 
 **A new version of this solution was released — how do I know?**
-The admin page checks GitHub on every load. When a newer release is available, a small green **✨ Update** pill appears in the top-right corner of the page, next to the version number. Click it [...]
+The admin page checks GitHub on every load. When a newer release is available, a small green **✨ Update** pill appears in the top-right corner of the page, next to the version number. Click it to go straight to the Releases page and download the latest zip.
 
 **Can I uninstall it cleanly?**
-Yes. Power Apps → Solutions → tick **Dependent Picklists** → **Delete**. Your business data, tables and choice fields are not affected — the solution only removes its own configuration ta[...]
+Yes. Power Apps → Solutions → tick **Dependent Picklists** → **Delete**. Your business data, tables and choice fields are not affected — the solution only removes its own configuration table and web resources.
 
 ---
 
 ## 🆕 Updating to a new version
 
-**Good news — you don't have to check for updates yourself.** Every time you open the **Dependent Picklists** admin page, it quietly checks GitHub for a newer release. When one is available, a [...]
+**Good news — you don't have to check for updates yourself.** Every time you open the **Dependent Picklists** admin page, it quietly checks GitHub for a newer release. When one is available, a small green **✨ Update** pill appears in the top-right corner of the page, next to the version number. Click it to go straight to the Releases page and download the latest zip.
 
-Prefer to do it manually? Just download the latest **`DependentPicklists_managed.zip`** from [Releases](../../releases) and import it the same way you did the first time — Power Apps detects it[...]
+![screenshot04](screenshot04.png)
+
+Prefer to do it manually? Just download the latest **`DependentPicklists_managed.zip`** from [Releases](../../releases) and import it the same way you did the first time — Power Apps detects it's an upgrade and handles the rest automatically.
 
 ---
 
