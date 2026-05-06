@@ -18,21 +18,38 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $repoRoot   = Split-Path -Parent $PSScriptRoot
 $releaseDir = Join-Path $repoRoot 'releases'
-$newVersion = '1.1.13.0'
+$newVersion = '1.1.14.0'
 
 function Strip-Zip {
     param([string]$ZipPath, [string]$NewVersion)
 
     Write-Host "==> $ZipPath" -ForegroundColor Cyan
-    $tmp = Join-Path $env:TEMP ("strip_" + [guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Path $tmp | Out-Null
-    [IO.Compression.ZipFile]::ExtractToDirectory($ZipPath, $tmp)
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
 
-    $custPath = Join-Path $tmp 'customizations.xml'
-    $solPath  = Join-Path $tmp 'solution.xml'
+    # ---- Read every entry from the source zip into memory, preserving the
+    #      ORIGINAL FullName (forward-slash separators required by Dataverse).
+    $src = [IO.Compression.ZipFile]::OpenRead($ZipPath)
+    $entries = [ordered]@{}
+    try {
+        foreach ($e in $src.Entries) {
+            # Drop bogus single-letter junk entries that occasionally appear
+            # in pac-exported zips (e.g. an empty 'W' sibling of WebResources/).
+            if ($e.FullName -match '^[A-Za-z]$') {
+                Write-Host "  dropping junk entry '$($e.FullName)' ($($e.Length) bytes)"
+                continue
+            }
+            if ($entries.Contains($e.FullName)) { continue }   # dedupe
+            $ms = New-Object IO.MemoryStream
+            $s  = $e.Open(); $s.CopyTo($ms); $s.Close()
+            $entries[$e.FullName] = $ms.ToArray()
+        }
+    } finally { $src.Dispose() }
 
     # ---- customizations.xml: drop the Incident entity ----
-    [xml]$cust = Get-Content -Raw -Path $custPath
+    $custBytes = $entries['customizations.xml']
+    $custText  = [Text.Encoding]::UTF8.GetString($custBytes)
+    if ($custText.Length -gt 0 -and [int][char]$custText[0] -eq 0xFEFF) { $custText = $custText.Substring(1) }
+    [xml]$cust = $custText
     $removed = 0
     foreach ($e in @($cust.SelectNodes('/ImportExportXml/Entities/Entity'))) {
         $name = $e.SelectSingleNode('Name').InnerText
@@ -42,9 +59,13 @@ function Strip-Zip {
         }
     }
     Write-Host "  customizations.xml: removed $removed Incident <Entity> node(s)"
+    $entries['customizations.xml'] = $utf8.GetBytes($cust.OuterXml)
 
-    # ---- solution.xml: drop incident RootComponent + all MissingDependency ----
-    [xml]$sol = Get-Content -Raw -Path $solPath
+    # ---- solution.xml: drop incident RootComponent + all MissingDependency, bump version ----
+    $solBytes = $entries['solution.xml']
+    $solText  = [Text.Encoding]::UTF8.GetString($solBytes)
+    if ($solText.Length -gt 0 -and [int][char]$solText[0] -eq 0xFEFF) { $solText = $solText.Substring(1) }
+    [xml]$sol = $solText
 
     $rcRemoved = 0
     foreach ($rc in @($sol.SelectNodes('//RootComponent'))) {
@@ -62,24 +83,26 @@ function Strip-Zip {
     }
     Write-Host "  solution.xml: removed $mdRemoved MissingDependency node(s)"
 
-    # If MissingDependencies parent is now empty, leave it (Dataverse tolerates it).
-
-    # Bump version
     $verNode = $sol.SelectSingleNode('//SolutionManifest/Version')
     $oldVer = $verNode.InnerText
     $verNode.InnerText = $NewVersion
     Write-Host "  solution.xml: version $oldVer -> $NewVersion"
+    $entries['solution.xml'] = $utf8.GetBytes($sol.OuterXml)
 
-    # Save as UTF-8 without BOM
-    $utf8 = New-Object System.Text.UTF8Encoding($false)
-    [IO.File]::WriteAllText($custPath, $cust.OuterXml, $utf8)
-    [IO.File]::WriteAllText($solPath,  $sol.OuterXml,  $utf8)
-
-    # Re-zip in place
+    # ---- Write a fresh zip preserving original entry names (forward slashes) ----
     $newZip = Join-Path $env:TEMP ("strip_" + [guid]::NewGuid().ToString('N') + ".zip")
-    [IO.Compression.ZipFile]::CreateFromDirectory($tmp, $newZip)
+    $z = [IO.Compression.ZipFile]::Open($newZip, 'Create')
+    try {
+        foreach ($k in $entries.Keys) {
+            $ne = $z.CreateEntry($k, [IO.Compression.CompressionLevel]::Optimal)
+            $os = $ne.Open()
+            $bytes = $entries[$k]
+            $os.Write($bytes, 0, $bytes.Length)
+            $os.Close()
+        }
+    } finally { $z.Dispose() }
+
     Copy-Item $newZip $ZipPath -Force
-    Remove-Item -Recurse -Force $tmp
     Remove-Item -Force $newZip
     Write-Host "  repacked OK ($([math]::Round((Get-Item $ZipPath).Length/1KB,1)) KB)" -ForegroundColor Green
 }
