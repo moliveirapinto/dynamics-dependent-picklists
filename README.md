@@ -8,11 +8,17 @@ This solution lets administrators set up **dependent dropdowns** on any Dynamics
 
 ---
 
-## 🆕 Updating to a new version
+## 📑 Contents
 
-**Good news — you don't have to check for updates yourself.** Every time you open the **Dependent Picklists** admin page, it quietly checks GitHub for a newer release. When one is available, a small green **✨ Update** pill appears in the top-right corner next to the version number, along with a one-click **Update now** button that downloads the latest managed solution and imports it into your environment for you. Your rules and form registrations are preserved.
-
-Prefer to do it manually? Just download the latest **`DependentPicklists_managed.zip`** from [Releases](../../releases) and import it the same way you did the first time — Power Apps detects it as an upgrade and updates the solution in place.
+- [✨ What it does for your team](#-what-it-does-for-your-team)
+- [🚀 Install (5 minutes)](#-install-5-minutes)
+- [🧭 Add the admin page to the Customer Service Admin Center](#-add-the-admin-page-to-the-customer-service-admin-center)
+- [🎯 Set up your first dependent dropdown](#-set-up-your-first-dependent-dropdown)
+- [🎛️ Rule scope: entity-wide vs form-specific (v1.1+)](#️-rule-scope-entity-wide-vs-form-specific-v11)
+- [📋 Copy rules from another form (v1.1+)](#-copy-rules-from-another-form-v11)
+- [❓ FAQ](#-faq)
+- [🆕 Updating to a new version](#-updating-to-a-new-version)
+- [📄 License](#-license)
 
 ---
 
@@ -135,6 +141,14 @@ The admin page checks GitHub on every load. When a newer release is available, a
 
 **Can I uninstall it cleanly?**
 Yes. Power Apps → Solutions → tick **Dependent Picklists** → **Delete**. Your business data, tables and choice fields are not affected — the solution only removes its own configuration table and the admin/runtime web resources.
+
+---
+
+## 🆕 Updating to a new version
+
+**Good news — you don't have to check for updates yourself.** Every time you open the **Dependent Picklists** admin page, it quietly checks GitHub for a newer release. When one is available, a small green **✨ Update** pill appears in the top-right corner next to the version number, along with a one-click **Update now** button that downloads the latest managed solution and imports it into your environment for you. Your rules and form registrations are preserved.
+
+Prefer to do it manually? Just download the latest **`DependentPicklists_managed.zip`** from [Releases](../../releases) and import it the same way you did the first time — Power Apps detects it as an upgrade and updates the solution in place.
 
 ---
 
